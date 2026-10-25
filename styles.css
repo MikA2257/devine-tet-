@@ -285,3 +285,18 @@ textarea {
 .tap-zones [data-act=pause] { background: rgba(255,255,255,.18); }
 .ask-q { margin: 22px 0 0; font-size: 24px; }
 [hidden] { display: none !important; }
+
+/* ---------- Multi-téléphones ---------- */
+.mp-chip { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 4px 0 10px; padding: 8px 14px; border-radius: 999px; background: rgba(46,204,113,.15); color: #9ff0c0; font-weight: 700; font-size: 14px; }
+.mp-host { background: var(--card); border-radius: 18px; padding: 16px; text-align: center; display: grid; gap: 10px; }
+.mp-code { font-size: 44px; font-weight: 900; letter-spacing: .18em; color: var(--accent); font-variant-numeric: tabular-nums; }
+#mp-code { text-transform: uppercase; letter-spacing: .3em; font-weight: 800; text-align: center; }
+.mp-me { text-align: center; color: var(--muted); font-size: 14px; margin-bottom: 8px; }
+.mp-me button { color: var(--accent); text-decoration: underline; font-size: 14px; }
+#mp-view .clock { font-size: 88px; margin: 10px 0; }
+#mp-view .clock.paused { color: var(--muted); }
+#mp-word .postit-paper { margin: 14px auto 6px; }
+.mp-hidden-word { margin: 16px 0 4px; padding: 18px; border-radius: 18px; background: rgba(255,255,255,.06); font-size: 20px; font-weight: 800; }
+.mp-names { position: absolute; inset: 0; background: rgba(13,8,32,.92); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 10; }
+.mp-names[hidden] { display: none; }
+.mp-names-box { width: min(100%, 380px); text-align: center; max-height: 100%; overflow-y: auto; }

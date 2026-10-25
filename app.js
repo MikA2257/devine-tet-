@@ -213,6 +213,7 @@
     renderSeg("#seg-turn", String(settings.turnTime));
     renderPlayers();
     updateHints();
+    renderHostBox();
     show("setup");
     $("#setup .scroll").scrollTop = 0;
   }
@@ -635,6 +636,7 @@
     if (!pi.deck.length) return toast("Aucun mot dans ces catégories");
     makeTeams();
     renderTeams();
+    updateChips();
     show("pi-teams");
   }
 
@@ -718,6 +720,7 @@
   // ----- Avant le tour -----
   function showTurn() {
     const t = pi.teams[pi.cur];
+    updateChips();
     const g = guesserOf(t), a = answererOf(t);
     $("#pi-round").textContent = pi.solo ? `Mot ${t.wordIdx + 1}` : `Tour ${pi.round}`;
     $("#pi-turn-name").textContent = teamName(t);
@@ -1001,6 +1004,370 @@
   }
 
   $("#btn-pi-replay").addEventListener("click", () => startTeams(pi.kind));
+
+  // =====================================================
+  //                 PLUSIEURS TÉLÉPHONES
+  // =====================================================
+  // Le téléphone hôte fait tourner la partie et diffuse régulièrement un résumé de ce qu'il affiche ;
+  // les autres téléphones (invités) le reçoivent et l'affichent : chrono, équipes, mot en cours…
+  // Le mot est caché sur le téléphone de celui qui devine. Mise en relation via le service public
+  // PeerJS, puis connexion directe entre téléphones (WebRTC).
+  const PEER_LIB = "https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js";
+  const PEER_PREFIX = "devinetete-";
+  const mp = {
+    role: null, peer: null, code: "", conns: [], loopId: null, lastKey: "", lastSent: 0,
+    conn: null, me: store.get("mpName", null), snap: null, clockEnd: 0, clockId: null, retryId: null
+  };
+
+  let peerLib = null;
+  function loadPeerLib() {
+    if (window.Peer) return Promise.resolve();
+    peerLib = peerLib || new Promise((resolve, reject) => {
+      const sc = document.createElement("script");
+      sc.src = PEER_LIB;
+      sc.onload = resolve;
+      sc.onerror = () => { peerLib = null; reject(new Error("lib")); };
+      document.head.appendChild(sc);
+    });
+    return peerLib;
+  }
+
+  function makeCode() {
+    const abc = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    let c = "";
+    for (let i = 0; i < 4; i++) c += abc[Math.floor(Math.random() * abc.length)];
+    return c;
+  }
+  const joinUrl = (code) => location.origin + location.pathname + "?join=" + code;
+  const peerId = (code) => PEER_PREFIX + code.toLowerCase();
+
+  // ----- Hôte -----
+  function renderHostBox() {
+    const box = $("#mp-host-box");
+    if (mp.role !== "host") {
+      box.innerHTML = `
+        <button class="secondary" id="mp-start" style="width:100%">📡 Inviter d'autres téléphones</button>
+        <p class="hint">Les autres joueurs suivent la partie sur leur téléphone : chrono, équipes et mot en cours (caché pour celui qui devine). Nécessite Internet.</p>`;
+      $("#mp-start").onclick = startHosting;
+      return;
+    }
+    const n = mp.conns.length;
+    box.innerHTML = `
+      <div class="mp-host">
+        <div class="sub">Code de la partie</div>
+        <div class="mp-code">${mp.code || "…"}</div>
+        <div class="sub">${mp.code ? plural(n, "téléphone") + " connecté" + (n > 1 ? "s" : "") : "Connexion…"}</div>
+        <button class="secondary" id="mp-share">📤 Envoyer le lien</button>
+        <button class="link-btn" id="mp-stop">Arrêter le partage</button>
+      </div>`;
+    $("#mp-share").onclick = shareLink;
+    $("#mp-stop").onclick = stopHosting;
+  }
+
+  function updateChips() {
+    const n = mp.conns.length;
+    $$("[data-mp-chip]").forEach((el) => {
+      el.hidden = mp.role !== "host";
+      el.textContent = `📡 Code ${mp.code} · ${plural(n, "téléphone")} connecté${n > 1 ? "s" : ""}`;
+    });
+    if ($("#setup").classList.contains("active")) renderHostBox();
+  }
+
+  async function shareLink() {
+    const url = joinUrl(mp.code);
+    try {
+      if (navigator.share) await navigator.share({ title: "Devine Tête", text: `Rejoins la partie (code ${mp.code})`, url });
+      else { await navigator.clipboard.writeText(url); toast("Lien copié"); }
+    } catch {}
+  }
+
+  async function startHosting() {
+    if (mp.role) return;
+    mp.role = "host";
+    mp.code = "";
+    renderHostBox();
+    try { await loadPeerLib(); } catch { mp.role = null; renderHostBox(); return toast("Impossible de charger le module réseau (Internet ?)"); }
+    const tryOpen = (attempt) => {
+      const code = makeCode();
+      const peer = new window.Peer(peerId(code));
+      mp.peer = peer;
+      peer.on("open", () => { mp.code = code; updateChips(); startBroadcast(); });
+      peer.on("connection", (conn) => {
+        conn.on("open", () => { mp.conns.push(conn); updateChips(); sendSnap(conn); });
+        conn.on("close", () => { mp.conns = mp.conns.filter((c) => c !== conn); updateChips(); });
+        conn.on("error", () => {});
+      });
+      peer.on("disconnected", () => { if (mp.role === "host" && !peer.destroyed) peer.reconnect(); });
+      peer.on("error", (e) => {
+        if (e.type === "unavailable-id" && attempt < 3) { peer.destroy(); return tryOpen(attempt + 1); }
+        if (!mp.code) { stopHosting(); toast("Partage impossible pour le moment (Internet ?)"); }
+      });
+    };
+    tryOpen(0);
+  }
+
+  function stopHosting() {
+    clearInterval(mp.loopId);
+    if (mp.peer) mp.peer.destroy();
+    Object.assign(mp, { role: null, peer: null, code: "", conns: [] });
+    updateChips();
+    renderHostBox();
+  }
+
+  // Résumé de l'écran courant de l'hôte, envoyé aux invités
+  function snapshot() {
+    const screen = ($(".screen.active") || {}).id || "home";
+    const txt = (sel) => ($(sel) || {}).textContent || "";
+    const rows = (sel) => $$(sel + " li").map((li) => ({
+      n: (li.querySelector(".n") || li).textContent.trim(),
+      w: ((li.querySelector(".w") || {}).textContent || "").trim(),
+      s: ((li.querySelector(".s") || {}).textContent || "").trim(),
+      cur: li.classList.contains("current"), out: li.classList.contains("out") || li.classList.contains("lost")
+    }));
+    const t = pi.teams[pi.cur];
+    const snap = { screen, players: settings.players.slice(), phase: "lobby", sub: "", title: "", roles: null,
+      word: null, reveal: null, clock: null, msg: "", listTitle: "", list: [] };
+    const turnInfo = () => {
+      snap.sub = txt("#pi-round");
+      snap.title = teamName(t);
+      snap.roles = { g: guesserOf(t), a: answererOf(t) };
+      snap.word = t.word;
+      snap.listTitle = txt("#pi-board-title");
+      snap.list = rows("#pi-board");
+    };
+    if (!pi.teams.length || !/^(pi|fh)-/.test(screen)) {
+      snap.sub = "En attente";
+      snap.title = "La partie va commencer";
+      snap.listTitle = "Joueurs";
+      snap.list = settings.players.map((n) => ({ n }));
+      return snap;
+    }
+    switch (screen) {
+      case "pi-teams":
+        snap.phase = "teams";
+        snap.sub = "Composition des équipes";
+        snap.title = pi.solo ? "Mode fun" : "Les binômes";
+        snap.listTitle = "Équipes";
+        snap.list = pi.teams.map((q) => ({ n: teamName(q) }));
+        break;
+      case "pi-deal":
+        snap.phase = "deal";
+        turnInfo();
+        snap.word = null;
+        snap.msg = "Préparation du mot…";
+        break;
+      case "pi-turn":
+        snap.phase = "turn";
+        turnInfo();
+        snap.msg = "Le chrono va bientôt démarrer.";
+        break;
+      case "fh-ready":
+        snap.phase = "ready";
+        turnInfo();
+        snap.msg = `${snap.roles.g} met le téléphone sur son front…`;
+        break;
+      case "pi-timer":
+      case "fh-play":
+      case "fh-ask": {
+        turnInfo();
+        const front = screen !== "pi-timer";
+        const running = front ? fh.phase === "play" : pi.running;
+        const left = front ? (running ? fh.endAt - performance.now() : turnMs() - fh.banked) : turnMs() - elapsed();
+        snap.phase = running ? "play" : "paused";
+        snap.clock = { left: Math.max(0, left), running };
+        snap.msg = running ? "" : screen === "fh-ask" ? "Pause : le mot a-t-il été trouvé ?" : "Chrono en pause";
+        break;
+      }
+      case "pi-reveal":
+        snap.phase = "reveal";
+        snap.sub = txt("#pi-reveal-label");
+        snap.reveal = txt("#pi-reveal-word");
+        snap.msg = txt("#pi-reveal-time");
+        break;
+      case "pi-timeup":
+        snap.phase = "timeup";
+        snap.title = txt("#pi-timeup-title");
+        snap.msg = txt("#pi-timeup-msg");
+        snap.listTitle = txt("#pi-board-title");
+        snap.list = rows("#pi-board");
+        break;
+      case "pi-winner":
+        snap.phase = "winner";
+        snap.sub = "🏆 Binôme gagnant";
+        snap.title = txt("#pi-winner-name");
+        snap.msg = txt("#pi-winner-time");
+        break;
+      case "pi-end":
+        snap.phase = "end";
+        snap.sub = txt("#pi-end-sub");
+        snap.title = txt("#pi-end-title");
+        snap.list = pi.solo ? rows("#pi-recap") : rows("#pi-ranking");
+        break;
+    }
+    return snap;
+  }
+
+  function sendSnap(conn) {
+    try { conn.send({ type: "snap", snap: snapshot() }); } catch {}
+  }
+
+  function startBroadcast() {
+    clearInterval(mp.loopId);
+    mp.loopId = setInterval(() => {
+      if (!mp.conns.length) return;
+      const snap = snapshot();
+      const key = JSON.stringify({ ...snap, clock: snap.clock && { s: Math.ceil(snap.clock.left / 1000), r: snap.clock.running } });
+      const now = performance.now();
+      if (key === mp.lastKey && now - mp.lastSent < 3000) return;
+      mp.lastKey = key;
+      mp.lastSent = now;
+      mp.conns.forEach((c) => { try { c.send({ type: "snap", snap }); } catch {} });
+    }, 250);
+  }
+
+  // ----- Invité -----
+  $("#btn-join").addEventListener("click", () => {
+    $("#mp-join-status").textContent = "";
+    show("mp-join");
+    $("#mp-code").focus();
+  });
+  $("#mp-code").addEventListener("input", (e) => {
+    e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  });
+  $("#mp-join-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    unlockAudio();
+    const code = $("#mp-code").value.trim().toUpperCase();
+    if (code.length !== 4) return toast("Le code fait 4 caractères");
+    joinGame(code);
+  });
+
+  async function joinGame(code) {
+    leaveGame(true);
+    mp.role = "guest";
+    mp.code = code;
+    $("#mp-join-status").textContent = "Connexion…";
+    try { await loadPeerLib(); } catch { mp.role = null; $("#mp-join-status").textContent = "Impossible de charger le module réseau (Internet ?)"; return; }
+    const peer = new window.Peer();
+    mp.peer = peer;
+    peer.on("open", () => connectToHost());
+    peer.on("error", (e) => {
+      if (mp.role !== "guest") return;
+      if (e.type === "peer-unavailable") {
+        if (mp.snap) return scheduleRetry();
+        $("#mp-join-status").textContent = "Partie introuvable. Vérifie le code (et que l'hôte partage toujours la partie).";
+        leaveGame(true);
+      } else if (!mp.snap) {
+        $("#mp-join-status").textContent = "Connexion impossible pour le moment (Internet ?)";
+      } else scheduleRetry();
+    });
+    peer.on("disconnected", () => { if (mp.role === "guest" && !peer.destroyed) peer.reconnect(); });
+  }
+
+  function connectToHost() {
+    if (mp.role !== "guest") return;
+    const conn = mp.peer.connect(peerId(mp.code), { reliable: true });
+    mp.conn = conn;
+    conn.on("open", () => {
+      $("#mp-head").textContent = `Partie ${mp.code}`;
+      if (!$("#mp-view").classList.contains("active")) show("mp-view");
+      keepAwake(true);
+    });
+    conn.on("data", (d) => { if (d && d.type === "snap" && d.snap) renderGuest(d.snap); });
+    conn.on("close", () => {
+      if (mp.role !== "guest") return;
+      $("#mp-msg").textContent = "Connexion perdue… reconnexion";
+      scheduleRetry();
+    });
+  }
+
+  function scheduleRetry() {
+    clearTimeout(mp.retryId);
+    mp.retryId = setTimeout(() => { if (mp.role === "guest" && mp.peer && !mp.peer.destroyed) connectToHost(); }, 2500);
+  }
+
+  function leaveGame(silent) {
+    clearTimeout(mp.retryId);
+    clearInterval(mp.clockId);
+    if (mp.role === "guest" && mp.peer) mp.peer.destroy();
+    if (mp.role === "guest") Object.assign(mp, { role: null, peer: null, conn: null, snap: null, code: "" });
+    if (!silent) { keepAwake(false); show("home"); }
+  }
+  $("#mp-leave").addEventListener("click", () => { if (confirm("Quitter la partie partagée ?")) leaveGame(false); });
+
+  function pickName(players) {
+    $("#mp-names-list").innerHTML = players.map((n, i) => `<button class="secondary" data-i="${i}">${esc(n)}</button>`).join("") +
+      `<button class="link-btn" data-i="-1">👀 Je regarde seulement</button>`;
+    $$("#mp-names-list button").forEach((b) => b.addEventListener("click", () => {
+      const i = Number(b.dataset.i);
+      mp.me = i < 0 ? "" : players[i];
+      store.set("mpName", mp.me);
+      $("#mp-names").hidden = true;
+      if (mp.snap) renderGuest(mp.snap);
+    }));
+    $("#mp-names").hidden = false;
+  }
+
+  function renderGuest(s) {
+    const prev = mp.snap;
+    mp.snap = s;
+    // Qui suis-je ? (pour cacher le mot à celui qui devine)
+    if (mp.me === null || (mp.me && !s.players.includes(mp.me))) {
+      if (s.players.length && $("#mp-names").hidden) pickName(s.players);
+    }
+    $("#mp-me").innerHTML = mp.me ? `Tu es <b>${esc(mp.me)}</b> · <button id="mp-rename">changer</button>`
+      : mp.me === "" ? `Spectateur · <button id="mp-rename">changer</button>` : "";
+    const rn = $("#mp-rename");
+    if (rn) rn.onclick = () => pickName(s.players);
+
+    $("#mp-sub").textContent = s.sub;
+    $("#mp-title").textContent = s.title;
+    $("#mp-roles").innerHTML = s.roles ? `🤔 <b>${esc(s.roles.g)}</b> devine · 💬 <b>${esc(s.roles.a)}</b> répond` : "";
+    $("#mp-msg").textContent = s.msg;
+
+    const word = $("#mp-word");
+    if (s.reveal) word.innerHTML = `<div class="postit-paper small"><div class="postit-word">${esc(s.reveal)}</div></div>`;
+    else if (s.word && s.roles && mp.me && mp.me === s.roles.g) word.innerHTML = `<div class="mp-hidden-word">🙈 C'est toi qui devines !<br>Le mot est caché.</div>`;
+    else if (s.word) word.innerHTML = `<div class="postit-paper small"><div class="postit-word">${esc(s.word)}</div></div>`;
+    else word.innerHTML = "";
+
+    // Chrono : décompte local entre deux messages de l'hôte
+    const clock = $("#mp-clock");
+    clearInterval(mp.clockId);
+    clock.hidden = !s.clock;
+    if (s.clock) {
+      mp.clockEnd = performance.now() + s.clock.left;
+      const tick = () => {
+        const left = s.clock.running ? Math.max(0, mp.clockEnd - performance.now()) : s.clock.left;
+        clock.textContent = Math.ceil(left / 1000);
+        clock.classList.toggle("low", s.clock.running && left <= 10000);
+        clock.classList.toggle("paused", !s.clock.running);
+      };
+      tick();
+      if (s.clock.running) mp.clockId = setInterval(tick, 200);
+    }
+
+    $("#mp-list-title").textContent = s.listTitle;
+    $("#mp-list").innerHTML = s.list.map((r) => `<li class="${r.cur ? "current" : ""} ${r.out ? "out" : ""}">
+      <span class="n">${esc(r.n)}</span><span class="w">${esc([r.w, r.s].filter(Boolean).join(" · "))}</span></li>`).join("");
+
+    if (prev && prev.phase !== s.phase) {
+      if (s.phase === "reveal") sfx.ok();
+      if (s.phase === "timeup") sfx.end();
+      if (s.phase === "play") sfx.go();
+    }
+  }
+
+  // Lien d'invitation : ?join=CODE
+  {
+    const code = new URLSearchParams(location.search).get("join");
+    if (code) {
+      history.replaceState(null, "", location.pathname);
+      $("#mp-code").value = code.toUpperCase().slice(0, 4);
+      show("mp-join");
+      joinGame($("#mp-code").value);
+    }
+  }
 
   // ---------- Hors-ligne ----------
   if ("serviceWorker" in navigator && location.protocol === "https:") {

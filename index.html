@@ -44,6 +44,7 @@
       </span>
     </button>
 
+    <button class="link-btn" id="btn-join">📡 Rejoindre une partie</button>
     <button class="link-btn" id="btn-custom">✏️ Mes mots perso</button>
     <p class="install-hint" id="install-hint">Astuce : dans Safari, touche <b>Partager</b> puis <b>Sur l'écran d'accueil</b> pour jouer en plein écran.</p>
   </div>
@@ -92,6 +93,11 @@
         <button data-v="0">0</button><button data-v="1">1 fois</button><button data-v="2">2 fois</button>
       </div>
       <p class="hint" id="skips-hint"></p>
+    </div>
+
+    <div id="opts-mp">
+      <h3>Plusieurs téléphones</h3>
+      <div id="mp-host-box"></div>
     </div>
 
     <div id="opts-postit">
@@ -176,6 +182,7 @@
     <h2>Les binômes</h2>
   </div>
   <div class="scroll">
+    <div class="mp-chip" data-mp-chip hidden></div>
     <p class="hint" id="pi-teams-hint"></p>
     <ul class="teams" id="pi-teams-list"></ul>
   </div>
@@ -201,6 +208,7 @@
     <h2 id="pi-round">Tour 1</h2>
   </div>
   <div class="scroll">
+    <div class="mp-chip" data-mp-chip hidden></div>
     <div class="turn-card">
       <div class="sub">Au tour de</div>
       <div class="turn-name" id="pi-turn-name"></div>
@@ -280,6 +288,50 @@
   <div class="bottom two">
     <button class="secondary" data-go="home">Menu</button>
     <button class="primary" id="btn-pi-replay">Rejouer</button>
+  </div>
+</section>
+
+<!-- MULTI-TÉLÉPHONES : REJOINDRE -->
+<section id="mp-join" class="screen">
+  <div class="topbar">
+    <button class="back" data-go="home" aria-label="Retour">‹</button>
+    <h2>Rejoindre une partie</h2>
+  </div>
+  <div class="scroll">
+    <p class="hint">Sur le téléphone qui lance la partie : Réglages → « Inviter d'autres téléphones ». Entre ici le code affiché.</p>
+    <form class="add-player" id="mp-join-form">
+      <input id="mp-code" type="text" placeholder="CODE" maxlength="4" autocomplete="off" autocapitalize="characters" enterkeyhint="go">
+      <button type="submit">Rejoindre</button>
+    </form>
+    <p class="hint" id="mp-join-status"></p>
+  </div>
+</section>
+
+<!-- MULTI-TÉLÉPHONES : ÉCRAN D'UN JOUEUR -->
+<section id="mp-view" class="screen">
+  <div class="topbar">
+    <button class="back" id="mp-leave" aria-label="Quitter">✕</button>
+    <h2 id="mp-head">Partie</h2>
+  </div>
+  <div class="scroll">
+    <div class="mp-me" id="mp-me"></div>
+    <div class="turn-card">
+      <div class="sub" id="mp-sub"></div>
+      <div class="turn-name" id="mp-title"></div>
+      <div class="roles" id="mp-roles"></div>
+      <div class="clock" id="mp-clock" hidden></div>
+      <div id="mp-word"></div>
+      <p class="hint" id="mp-msg"></p>
+    </div>
+    <h3 id="mp-list-title"></h3>
+    <ul class="board" id="mp-list"></ul>
+  </div>
+  <div class="mp-names" id="mp-names" hidden>
+    <div class="mp-names-box">
+      <h2>Qui es-tu ?</h2>
+      <p class="hint">Pour cacher le mot quand c'est toi qui devines.</p>
+      <div class="stack" id="mp-names-list"></div>
+    </div>
   </div>
 </section>
 
