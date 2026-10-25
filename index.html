@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Devine Tête</title>
+  <meta name="description" content="Le jeu du devine tête : téléphone sur le front ou post-it.">
+  <meta name="theme-color" content="#1b1035">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Devine Tête">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ACCUEIL -->
+<section id="home" class="screen active">
+  <div class="scroll">
+    <header class="hero">
+      <div class="logo">🤔</div>
+      <h1>Devine Tête</h1>
+      <p class="sub">Fais deviner, devine, rigole.</p>
+    </header>
+
+    <button class="mode-card front" data-mode="front">
+      <span class="mode-emoji">📱</span>
+      <span class="mode-text">
+        <strong>Téléphone sur le front</strong>
+        <small>Incline vers le bas si tu trouves, vers le haut pour passer. Chrono !</small>
+      </span>
+    </button>
+
+    <button class="mode-card postit" data-mode="postit">
+      <span class="mode-emoji">🟨</span>
+      <span class="mode-text">
+        <strong>Post-it</strong>
+        <small>Chacun son personnage sur le front. Questions oui / non, chacun son tour.</small>
+      </span>
+    </button>
+
+    <button class="link-btn" id="btn-custom">✏️ Mes mots perso</button>
+    <p class="install-hint" id="install-hint">Astuce : dans Safari, touche <b>Partager</b> puis <b>Sur l'écran d'accueil</b> pour jouer en plein écran.</p>
+  </div>
+</section>
+
+<!-- RÉGLAGES DE PARTIE -->
+<section id="setup" class="screen">
+  <div class="topbar">
+    <button class="back" data-go="home" aria-label="Retour">‹</button>
+    <h2 id="setup-title">Réglages</h2>
+  </div>
+  <div class="scroll">
+    <h3>Catégories</h3>
+    <div class="cats" id="cats"></div>
+
+    <div id="opts-front">
+      <h3>Durée de la manche</h3>
+      <div class="seg" id="seg-duration">
+        <button data-v="30">30 s</button><button data-v="60">60 s</button><button data-v="90">90 s</button><button data-v="120">2 min</button>
+      </div>
+      <h3>Contrôle</h3>
+      <div class="seg" id="seg-control">
+        <button data-v="tilt">Inclinaison</button><button data-v="tap">Boutons</button>
+      </div>
+      <p class="hint" id="control-hint"></p>
+    </div>
+
+    <div id="opts-postit">
+      <h3>Joueurs</h3>
+      <div id="players"></div>
+      <form class="add-player" id="add-player">
+        <input id="player-name" type="text" placeholder="Prénom" maxlength="16" autocomplete="off" enterkeyhint="done">
+        <button type="submit">Ajouter</button>
+      </form>
+      <h3>Les post-it</h3>
+      <div class="seg" id="seg-support">
+        <button data-v="paper">Vrais post-it</button><button data-v="screen">Sur l'écran</button>
+      </div>
+      <p class="hint" id="support-hint"></p>
+    </div>
+  </div>
+  <div class="bottom">
+    <button class="primary" id="btn-start">C'est parti !</button>
+  </div>
+</section>
+
+<!-- MOTS PERSO -->
+<section id="custom" class="screen">
+  <div class="topbar">
+    <button class="back" data-go="home" aria-label="Retour">‹</button>
+    <h2>Mes mots perso</h2>
+  </div>
+  <div class="scroll">
+    <p class="hint">Un mot ou un nom par ligne. Ils apparaissent dans la catégorie « Mes mots ».</p>
+    <textarea id="custom-words" rows="14" placeholder="Tata Josette&#10;Le chat de la voisine&#10;Les vacances à Biarritz"></textarea>
+  </div>
+  <div class="bottom">
+    <button class="primary" id="btn-save-custom">Enregistrer</button>
+  </div>
+</section>
+
+<!-- FRONT : PRÉPARATION -->
+<section id="fh-ready" class="screen dark">
+  <button class="quit" data-quit aria-label="Quitter">✕</button>
+  <div class="center">
+    <div class="rotate-hint">🔄 Tourne le téléphone à l'horizontale</div>
+    <div class="ready-box">
+      <div id="ready-msg" class="ready-msg">Place le téléphone sur ton front</div>
+      <div id="ready-count" class="ready-count"></div>
+      <button class="primary" id="btn-ready" hidden>Je suis prêt</button>
+    </div>
+  </div>
+</section>
+
+<!-- FRONT : JEU -->
+<section id="fh-play" class="screen dark">
+  <div class="play-top">
+    <span id="fh-score" class="pill">0</span>
+    <span id="fh-timer" class="pill timer">60</span>
+  </div>
+  <div class="center">
+    <div id="fh-word" class="big-word"></div>
+  </div>
+  <div class="tap-zones" id="tap-zones">
+    <button data-act="pass">⬆︎ Passer</button>
+    <button data-act="ok">Trouvé ✓</button>
+  </div>
+  <div id="fh-flash" class="flash"></div>
+  <button class="quit" data-quit aria-label="Quitter">✕</button>
+</section>
+
+<!-- FRONT : FIN -->
+<section id="fh-end" class="screen">
+  <div class="scroll">
+    <div class="result-head">
+      <div class="result-score" id="fh-final"></div>
+      <div class="sub" id="fh-final-label"></div>
+    </div>
+    <ul class="recap" id="fh-recap"></ul>
+  </div>
+  <div class="bottom two">
+    <button class="secondary" data-go="home">Menu</button>
+    <button class="primary" id="btn-replay">Rejouer</button>
+  </div>
+</section>
+
+<!-- POST-IT : DISTRIBUTION -->
+<section id="pi-deal" class="screen">
+  <div class="topbar">
+    <button class="back" data-quit aria-label="Quitter">✕</button>
+    <h2>Distribution</h2>
+  </div>
+  <div class="center col" id="pi-deal-body"></div>
+</section>
+
+<!-- POST-IT : TOUR -->
+<section id="pi-turn" class="screen">
+  <div class="topbar">
+    <button class="back" data-quit aria-label="Quitter">✕</button>
+    <h2 id="pi-round">Tour 1</h2>
+  </div>
+  <div class="scroll">
+    <div class="turn-card">
+      <div class="sub">C'est à</div>
+      <div class="turn-name" id="pi-turn-name"></div>
+      <p class="hint" id="pi-turn-hint"></p>
+    </div>
+    <ul class="board" id="pi-board"></ul>
+  </div>
+  <div class="bottom" id="pi-turn-actions"></div>
+</section>
+
+<!-- POST-IT : POST-IT À L'ÉCRAN -->
+<section id="pi-show" class="screen postit-screen">
+  <div class="postit-paper" id="pi-paper">
+    <div class="postit-word" id="pi-word"></div>
+  </div>
+  <div class="postit-foot">Touchez l'écran quand le tour est fini</div>
+</section>
+
+<!-- POST-IT : RÉSULTAT DU TOUR -->
+<section id="pi-result" class="screen">
+  <div class="center col">
+    <div class="sub">Alors,</div>
+    <div class="turn-name" id="pi-result-name"></div>
+    <div class="sub">a trouvé ?</div>
+    <div class="stack">
+      <button class="primary ok" id="btn-found">Oui, trouvé ! 🎉</button>
+      <button class="secondary" id="btn-notfound">Pas encore, au suivant</button>
+      <button class="link-btn" id="btn-giveup">Abandonner et révéler</button>
+    </div>
+  </div>
+</section>
+
+<!-- POST-IT : RÉVÉLATION -->
+<section id="pi-reveal" class="screen">
+  <div class="center col">
+    <div class="sub" id="pi-reveal-label"></div>
+    <div class="postit-paper small"><div class="postit-word" id="pi-reveal-word"></div></div>
+    <button class="primary" id="btn-reveal-next">Continuer</button>
+  </div>
+</section>
+
+<!-- POST-IT : FIN -->
+<section id="pi-end" class="screen">
+  <div class="scroll">
+    <div class="result-head">
+      <div class="logo">🏆</div>
+      <h2>Classement</h2>
+    </div>
+    <ol class="ranking" id="pi-ranking"></ol>
+  </div>
+  <div class="bottom two">
+    <button class="secondary" data-go="home">Menu</button>
+    <button class="primary" id="btn-pi-replay">Rejouer</button>
+  </div>
+</section>
+
+<div id="toast" class="toast"></div>
+
+<script src="words.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
