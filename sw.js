@@ -1,6 +1,7 @@
-// Cache hors-ligne : incrémenter VERSION à chaque mise à jour des fichiers
-const VERSION = "devine-tete-v6";
-const FILES = ["./", "index.html", "styles.css", "app.js", "words.js", "manifest.webmanifest",
+// Cache hors-ligne : le nom vient de version.js, à changer à chaque mise à jour
+importScripts("version.js");
+const VERSION = "devine-tete-v" + self.APP_VERSION.num;
+const FILES = ["./", "index.html", "styles.css", "app.js", "words.js", "version.js", "manifest.webmanifest",
   "icons/apple-touch-icon.png", "icons/icon-192.png", "icons/icon-512.png"];
 
 self.addEventListener("install", (e) => {

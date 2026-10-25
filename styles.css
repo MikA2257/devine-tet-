@@ -108,6 +108,7 @@ h3 { margin: 22px 0 10px; font-size: 14px; text-transform: uppercase; letter-spa
 .mode-text strong { display: block; font-size: 21px; margin-bottom: 4px; }
 .mode-text small { font-size: 14px; opacity: .85; line-height: 1.35; }
 #btn-custom { display: block; margin: 18px auto 0; }
+.version { display: inline-block; color: var(--muted); font-size: 13px; margin: 8px 0 0; padding: 4px 12px; border-radius: 999px; background: rgba(255,255,255,.08); }
 .install-hint { text-align: center; color: var(--muted); font-size: 13px; line-height: 1.4; margin-top: 12px; }
 
 /* ---------- Réglages ---------- */

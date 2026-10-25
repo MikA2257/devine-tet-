@@ -44,4 +44,4 @@ python3 -m http.server 8000
 ```
 
 Sur ordinateur, la barre d'espace met le chrono en pause en mode front.
-Après modification des fichiers, incrémenter `VERSION` dans `sw.js`.
+À chaque mise à jour, changer le numéro et le petit nom dans `version.js` (affichés sur l'écran titre, ils renouvellent aussi le cache hors-ligne).

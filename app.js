@@ -184,6 +184,9 @@
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   if (standalone || !isIOS) $("#install-hint").hidden = true;
 
+  const v = window.APP_VERSION;
+  $("#version").textContent = `Version ${v.num} · ${v.emoji} ${v.name}`;
+
   // ---------- Mots perso ----------
   $("#btn-custom").addEventListener("click", () => {
     $("#custom-words").value = customWords.join("\n");
