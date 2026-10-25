@@ -1,5 +1,5 @@
 // Cache hors-ligne : incrémenter VERSION à chaque mise à jour des fichiers
-const VERSION = "devine-tete-v5";
+const VERSION = "devine-tete-v6";
 const FILES = ["./", "index.html", "styles.css", "app.js", "words.js", "manifest.webmanifest",
   "icons/apple-touch-icon.png", "icons/icon-192.png", "icons/icon-512.png"];
 

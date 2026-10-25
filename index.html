@@ -121,31 +121,35 @@
 </section>
 
 <!-- FRONT : PRÉPARATION -->
+<!-- .stage est tourné de 90° si le verrouillage de rotation garde l'écran en portrait -->
 <section id="fh-ready" class="screen dark">
-  <button class="quit" data-quit aria-label="Quitter">✕</button>
-  <div class="center">
-    <div class="rotate-hint">🔄 Tourne le téléphone à l'horizontale</div>
-    <div class="ready-box">
-      <div id="ready-msg" class="ready-msg">Place le téléphone sur ton front</div>
-      <div id="ready-count" class="ready-count"></div>
-      <button class="primary" id="btn-ready" hidden>Je suis prêt</button>
+  <div class="stage">
+    <button class="quit" data-quit aria-label="Quitter">✕</button>
+    <div class="center">
+      <div class="ready-box">
+        <div id="ready-msg" class="ready-msg">Place le téléphone sur ton front</div>
+        <div id="ready-count" class="ready-count"></div>
+        <button class="primary" id="btn-ready" hidden>Je suis prêt</button>
+      </div>
     </div>
   </div>
 </section>
 
 <!-- FRONT : JEU -->
 <section id="fh-play" class="screen dark">
-  <div class="play-top">
-    <span id="fh-timer" class="pill timer">60</span>
+  <div class="stage">
+    <div class="play-top">
+      <span id="fh-timer" class="pill timer">60</span>
+    </div>
+    <div class="center">
+      <div id="fh-word" class="big-word"></div>
+    </div>
+    <div class="tap-zones" id="tap-zones">
+      <button data-act="pause">⏸ Pause</button>
+    </div>
+    <div id="fh-flash" class="flash"></div>
+    <button class="quit" data-quit aria-label="Quitter">✕</button>
   </div>
-  <div class="center">
-    <div id="fh-word" class="big-word"></div>
-  </div>
-  <div class="tap-zones" id="tap-zones">
-    <button data-act="pause">⏸ Pause</button>
-  </div>
-  <div id="fh-flash" class="flash"></div>
-  <button class="quit" data-quit aria-label="Quitter">✕</button>
 </section>
 
 <!-- FRONT : PAUSE EN BINÔMES (mot caché) -->

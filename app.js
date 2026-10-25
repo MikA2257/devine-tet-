@@ -140,8 +140,10 @@
   });
 
   // ---------- Capteur d'inclinaison ----------
-  // up = composante verticale de la normale à l'écran :
-  //  +1 écran vers le plafond, 0 écran face aux autres (sur le front), -1 écran vers le sol.
+  // Composantes verticales (entre -1 et 1) de trois directions du téléphone :
+  //  up    : normale à l'écran (+1 écran vers le plafond, 0 écran face aux autres, -1 vers le sol)
+  //  top   : bord haut (±1 quand il est tenu en portrait)
+  //  right : bord droit (±1 quand il est tenu en paysage, +1 si le bord droit est en haut)
   const Tilt = {
     handler: null,
     requestPermission() {
@@ -158,7 +160,8 @@
       this.handler = (e) => {
         if (e.beta == null || e.gamma == null) return;
         const r = Math.PI / 180;
-        cb(Math.cos(e.beta * r) * Math.cos(e.gamma * r), Math.sin(e.beta * r));
+        const b = e.beta * r, g = e.gamma * r;
+        cb({ up: Math.cos(b) * Math.cos(g), top: Math.sin(b), right: -Math.cos(b) * Math.sin(g) });
       };
       window.addEventListener("deviceorientation", this.handler);
     },
@@ -321,7 +324,7 @@
   // quitte le front, le chrono se met en pause et on demande si le mot a été trouvé.
   const fh = {
     useTilt: false, phase: "idle",   // idle | ready | count | play | asked | over
-    team: null, banked: 0, playStart: 0, offSince: 0,
+    team: null, banked: 0, playStart: 0, offSince: 0, stageRot: "",
     timerId: null, endAt: 0, stableSince: 0, gotSensor: false,
     sensorCheck: null, countTimer: null
   };
@@ -349,11 +352,8 @@
     fh.phase = "ready";
     fh.gotSensor = false;
     fh.stableSince = 0;
-    const who = guesserOf(fh.team);
     $("#ready-count").textContent = "";
-    $("#ready-msg").textContent = fh.useTilt
-      ? `${who}, ${fh.banked > 0 ? "remets" : "place"} le téléphone sur ton front`
-      : `${who}, prêt ?`;
+    $("#ready-msg").textContent = readyText();
     $("#btn-ready").hidden = fh.useTilt;
     show("fh-ready");
     keepAwake(true);
@@ -374,11 +374,19 @@
     }
   }
 
+  function readyText() {
+    const who = guesserOf(fh.team);
+    return fh.useTilt
+      ? `${who}, ${fh.banked > 0 ? "remets" : "mets"} le téléphone à l'horizontale sur ton front`
+      : `${who}, prêt ?`;
+  }
+
   $("#btn-ready").addEventListener("click", () => { unlockAudio(); startCountdown(); });
 
   function startCountdown() {
     if (fh.phase !== "ready") return;
     fh.phase = "count";
+    fh.offSince = 0;
     $("#btn-ready").hidden = true;
     $("#ready-msg").textContent = "Attention…";
     let n = 3;
@@ -393,17 +401,44 @@
     step();
   }
 
-  // up : +1 écran vers le plafond, -1 vers le sol ; side : ~±1 si le téléphone est tenu en portrait
-  function onTilt(up, side) {
+  // Si l'écran reste en portrait (rotation verrouillée) alors que le téléphone est à l'horizontale,
+  // on tourne l'affichage pour que le mot soit lisible.
+  function orientStage(right) {
+    const portraitScreen = window.innerHeight > window.innerWidth;
+    const cls = !portraitScreen || Math.abs(right) < 0.7 ? "" : right > 0 ? "rot-cw" : "rot-ccw";
+    if (cls === fh.stageRot) return;
+    fh.stageRot = cls;
+    $$(".stage").forEach((el) => {
+      el.classList.toggle("rot-cw", cls === "rot-cw");
+      el.classList.toggle("rot-ccw", cls === "rot-ccw");
+    });
+  }
+
+  function onTilt({ up, top, right }) {
     fh.gotSensor = true;
     const now = performance.now();
-    const onForehead = Math.abs(up) < 0.5 && Math.abs(side) < 0.6;
+    // À l'horizontale (paysage) et debout, écran face aux autres : position « sur le front »
+    const landscape = Math.abs(right) > 0.75;
+    const inPose = landscape && Math.abs(up) < 0.4;
+    const onForehead = Math.abs(up) < 0.5 && Math.abs(top) < 0.6;
+    if (fh.phase === "ready" || fh.phase === "count") orientStage(right);
     if (fh.phase === "ready") {
-      // On attend que le téléphone soit vertical et stable sur le front
-      if (Math.abs(up) < 0.35) {
+      // Le compte à rebours ne démarre que téléphone à l'horizontale, stable sur le front
+      $("#ready-msg").textContent = landscape ? readyText() : "🔄 Tourne le téléphone à l'horizontale";
+      if (inPose) {
         if (!fh.stableSince) fh.stableSince = now;
         else if (now - fh.stableSince > 700) startCountdown();
       } else fh.stableSince = 0;
+    } else if (fh.phase === "count") {
+      // Téléphone retiré pendant le compte à rebours : on attend de nouveau
+      if (inPose) fh.offSince = 0;
+      else if (!fh.offSince) fh.offSince = now;
+      else if (now - fh.offSince > 300) {
+        clearTimeout(fh.countTimer);
+        fh.phase = "ready";
+        fh.stableSince = 0;
+        $("#ready-count").textContent = "";
+      }
     } else if (fh.phase === "play") {
       // Téléphone redressé / retiré du front : pause
       if (onForehead) fh.offSince = 0;

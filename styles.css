@@ -154,15 +154,17 @@ textarea {
 .ready-msg { font-size: clamp(26px, 6vw, 46px); font-weight: 800; max-width: 16ch; }
 .ready-count { font-size: clamp(80px, 30vh, 200px); font-weight: 900; color: var(--accent); line-height: 1; min-height: 1em; }
 .ready-count:empty { display: none; }
-.rotate-hint { display: none; }
 
-@media (orientation: portrait) {
-  #fh-ready .rotate-hint {
-    display: block;
-    position: absolute; left: 20px; right: 20px; top: calc(var(--safe-t) + 70px);
-    background: rgba(255,204,51,.15); color: var(--accent); padding: 12px; border-radius: 14px; font-weight: 700;
-  }
+/* Scène du mode front : tournée de 90° quand le téléphone est en paysage mais l'écran reste en portrait
+   (verrouillage de la rotation activé) */
+.stage { position: absolute; inset: var(--safe-t) var(--safe-r) var(--safe-b) var(--safe-l); display: flex; flex-direction: column; container-type: size; }
+.stage.rot-cw, .stage.rot-ccw {
+  inset: auto; left: 50%; top: 50%; width: 100vh; width: 100dvh; height: 100vw;
+  transform: translate(-50%, -50%) rotate(90deg);
 }
+.stage.rot-ccw { transform: translate(-50%, -50%) rotate(-90deg); }
+.stage .quit { top: 10px; right: 12px; }
+.stage .play-top { top: 10px; left: 12px; }
 
 .play-top {
   position: absolute; top: calc(var(--safe-t) + 10px); left: calc(var(--safe-l) + 12px);
@@ -174,10 +176,11 @@ textarea {
 
 .big-word {
   font-size: clamp(40px, min(13vw, 22vh), 140px);
+  font-size: clamp(40px, min(13cqw, 22cqh), 140px);
   font-weight: 900;
   line-height: 1.05;
   letter-spacing: -.02em;
-  max-width: 92vw;
+  max-width: 92cqw;
   overflow-wrap: anywhere;
   hyphens: auto;
 }

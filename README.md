@@ -13,6 +13,7 @@ Avec « 2 mots par binôme », quand le binôme trouve, les rôles s'inversent a
 Nombre impair : le dernier groupe est un trio, mais à chaque tour un seul joueur devine et un seul répond, donc mêmes conditions qu'un binôme.
 
 **📱 Téléphone sur le front** : mêmes règles que le post-it. Le téléphone, à l'horizontale sur le front de celui qui devine, affiche son mot et le chrono.
+Le compte à rebours, le mot et le chrono ne démarrent que téléphone à l'horizontale sur le front (l'affichage pivote aussi si la rotation de l'iPhone est verrouillée).
 Dès qu'on retire le téléphone du front, le chrono se met en pause et l'appli demande (mot caché) : trouvé, on reprend, ou abandon (possible seulement si une autre équipe a déjà fini).
 Option « Boutons » : un bouton Pause remplace la détection.
 
