@@ -214,7 +214,6 @@ textarea {
 .board li.current { outline: 2px solid var(--accent); }
 .board .w { color: var(--postit); font-weight: 700; text-align: right; }
 .board .w.hidden { color: var(--muted); font-weight: 400; font-style: italic; }
-.board li.found .n::after { content: " ✓"; color: var(--ok); }
 
 .postit-paper {
   width: min(86vw, 70vh, 520px);
@@ -259,3 +258,20 @@ textarea {
 @media (orientation: landscape) and (max-height: 500px) {
   .toast { top: calc(var(--safe-t) + 16px); bottom: auto; }
 }
+
+/* ---------- Binômes ---------- */
+.teams { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 10px; }
+.team { display: grid; grid-template-columns: 40px 1fr; align-items: center; gap: 10px; padding: 14px 16px; border-radius: 18px; background: var(--card); }
+.team-num { width: 36px; height: 36px; border-radius: 18px; background: var(--accent); color: var(--accent-ink); font-weight: 900; display: flex; align-items: center; justify-content: center; }
+.role { display: block; line-height: 1.5; }
+.roles { margin-top: 8px; font-size: 16px; }
+.board li.out { opacity: .5; }
+.sub.small { font-size: 14px; min-height: 1.2em; }
+
+.timer-head { text-align: center; padding: 16px 20px 0; }
+.clock { font-size: clamp(72px, 22vh, 160px); font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; color: var(--accent); }
+.clock.low { color: var(--danger); animation: pulse 1s infinite; }
+.timer-postit { width: min(80vw, 40vh, 420px); }
+.timer-postit[hidden] { display: none; }
+.timer-roles { font-size: 20px; line-height: 1.6; color: var(--muted); }
+.timer-roles b { color: #fff; }

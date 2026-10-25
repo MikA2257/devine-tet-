@@ -38,8 +38,8 @@
     <button class="mode-card postit" data-mode="postit">
       <span class="mode-emoji">🟨</span>
       <span class="mode-text">
-        <strong>Post-it</strong>
-        <small>Chacun son personnage sur le front. Questions oui / non, chacun son tour.</small>
+        <strong>Post-it en binômes</strong>
+        <small>L'appli forme les binômes. Chacun son tour, chrono en main : le binôme le plus rapide gagne.</small>
       </span>
     </button>
 
@@ -77,6 +77,10 @@
         <input id="player-name" type="text" placeholder="Prénom" maxlength="16" autocomplete="off" enterkeyhint="done">
         <button type="submit">Ajouter</button>
       </form>
+      <h3>Temps par tour</h3>
+      <div class="seg" id="seg-turn">
+        <button data-v="30">30 s</button><button data-v="45">45 s</button><button data-v="60">60 s</button><button data-v="90">90 s</button>
+      </div>
       <h3>Les post-it</h3>
       <div class="seg" id="seg-support">
         <button data-v="paper">Vrais post-it</button><button data-v="screen">Sur l'écran</button>
@@ -149,7 +153,23 @@
   </div>
 </section>
 
-<!-- POST-IT : DISTRIBUTION -->
+<!-- BINÔMES : COMPOSITION -->
+<section id="pi-teams" class="screen">
+  <div class="topbar">
+    <button class="back" data-quit aria-label="Quitter">✕</button>
+    <h2>Les binômes</h2>
+  </div>
+  <div class="scroll">
+    <p class="hint" id="pi-teams-hint"></p>
+    <ul class="teams" id="pi-teams-list"></ul>
+  </div>
+  <div class="bottom two">
+    <button class="secondary" id="btn-reshuffle">🔀 Refaire</button>
+    <button class="primary" id="btn-teams-ok">C'est bon !</button>
+  </div>
+</section>
+
+<!-- BINÔMES : DISTRIBUTION DES POST-IT -->
 <section id="pi-deal" class="screen">
   <div class="topbar">
     <button class="back" data-quit aria-label="Quitter">✕</button>
@@ -158,7 +178,7 @@
   <div class="center col" id="pi-deal-body"></div>
 </section>
 
-<!-- POST-IT : TOUR -->
+<!-- BINÔMES : AVANT LE TOUR -->
 <section id="pi-turn" class="screen">
   <div class="topbar">
     <button class="back" data-quit aria-label="Quitter">✕</button>
@@ -166,47 +186,70 @@
   </div>
   <div class="scroll">
     <div class="turn-card">
-      <div class="sub">C'est à</div>
+      <div class="sub">Au tour de</div>
       <div class="turn-name" id="pi-turn-name"></div>
+      <div class="roles" id="pi-turn-roles"></div>
       <p class="hint" id="pi-turn-hint"></p>
     </div>
+    <h3>Chronos</h3>
     <ul class="board" id="pi-board"></ul>
   </div>
   <div class="bottom" id="pi-turn-actions"></div>
 </section>
 
-<!-- POST-IT : POST-IT À L'ÉCRAN -->
-<section id="pi-show" class="screen postit-screen">
-  <div class="postit-paper" id="pi-paper">
-    <div class="postit-word" id="pi-word"></div>
+<!-- BINÔMES : CHRONO -->
+<section id="pi-timer" class="screen dark">
+  <div class="timer-head">
+    <div class="sub" id="pi-timer-team"></div>
+    <div class="clock" id="pi-clock">45</div>
+    <div class="sub small" id="pi-total"></div>
   </div>
-  <div class="postit-foot">Touchez l'écran quand le tour est fini</div>
-</section>
-
-<!-- POST-IT : RÉSULTAT DU TOUR -->
-<section id="pi-result" class="screen">
   <div class="center col">
-    <div class="sub">Alors,</div>
-    <div class="turn-name" id="pi-result-name"></div>
-    <div class="sub">a trouvé ?</div>
-    <div class="stack">
-      <button class="primary ok" id="btn-found">Oui, trouvé ! 🎉</button>
-      <button class="secondary" id="btn-notfound">Pas encore, au suivant</button>
-      <button class="link-btn" id="btn-giveup">Abandonner et révéler</button>
-    </div>
+    <div class="postit-paper timer-postit" id="pi-timer-postit"><div class="postit-word" id="pi-timer-word"></div></div>
+    <div class="timer-roles" id="pi-timer-roles"></div>
+  </div>
+  <div class="bottom two">
+    <button class="secondary" id="btn-pause">⏸ Pause</button>
+    <button class="primary ok" id="btn-found">Trouvé ! 🎉</button>
   </div>
 </section>
 
-<!-- POST-IT : RÉVÉLATION -->
+<!-- BINÔMES : TEMPS ÉCOULÉ -->
+<section id="pi-timeup" class="screen">
+  <div class="center col">
+    <div class="logo">⏰</div>
+    <h2>Temps écoulé !</h2>
+    <div class="sub" id="pi-timeup-msg"></div>
+    <div class="stack"><button class="primary" id="btn-timeup-next">Binôme suivant</button></div>
+  </div>
+</section>
+
+<!-- BINÔMES : MOT TROUVÉ -->
 <section id="pi-reveal" class="screen">
   <div class="center col">
     <div class="sub" id="pi-reveal-label"></div>
     <div class="postit-paper small"><div class="postit-word" id="pi-reveal-word"></div></div>
-    <button class="primary" id="btn-reveal-next">Continuer</button>
+    <div class="sub" id="pi-reveal-time"></div>
+    <div class="stack"><button class="primary" id="btn-reveal-next">Continuer</button></div>
   </div>
 </section>
 
-<!-- POST-IT : FIN -->
+<!-- BINÔMES : VAINQUEUR -->
+<section id="pi-winner" class="screen">
+  <div class="center col">
+    <div class="logo">🏆</div>
+    <div class="sub">Binôme gagnant</div>
+    <div class="turn-name" id="pi-winner-name"></div>
+    <div class="sub" id="pi-winner-time"></div>
+    <p class="hint" id="pi-winner-hint"></p>
+    <div class="stack">
+      <button class="primary" id="btn-continue">Continuer pour le classement</button>
+      <button class="secondary" id="btn-finish">Terminer la partie</button>
+    </div>
+  </div>
+</section>
+
+<!-- BINÔMES : FIN -->
 <section id="pi-end" class="screen">
   <div class="scroll">
     <div class="result-head">
