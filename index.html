@@ -66,6 +66,7 @@
         <input id="player-name" type="text" placeholder="Prénom" maxlength="16" autocomplete="off" enterkeyhint="done">
         <button type="submit">Ajouter</button>
       </form>
+      <p class="hint" id="players-hint"></p>
       <h3>Temps par tour</h3>
       <div class="seg" id="seg-turn">
         <button data-v="30">30 s</button><button data-v="45">45 s</button><button data-v="60">60 s</button><button data-v="90">90 s</button>
@@ -206,7 +207,7 @@
       <div class="roles" id="pi-turn-roles"></div>
       <p class="hint" id="pi-turn-hint"></p>
     </div>
-    <h3>Chronos</h3>
+    <h3 id="pi-board-title">Chronos</h3>
     <ul class="board" id="pi-board"></ul>
   </div>
   <div class="bottom" id="pi-turn-actions"></div>
@@ -269,10 +270,12 @@
 <section id="pi-end" class="screen">
   <div class="scroll">
     <div class="result-head">
-      <div class="logo">🏆</div>
-      <h2>Classement</h2>
+      <div class="logo" id="pi-end-logo">🏆</div>
+      <h2 id="pi-end-title">Classement</h2>
+      <div class="sub" id="pi-end-sub"></div>
     </div>
     <ol class="ranking" id="pi-ranking"></ol>
+    <ul class="board" id="pi-recap"></ul>
   </div>
   <div class="bottom two">
     <button class="secondary" data-go="home">Menu</button>

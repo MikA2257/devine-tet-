@@ -10,6 +10,8 @@ Les binômes jouent à tour de rôle (30 / 45 / 60 / 90 s par tour) ; le temps s
 ensuite les autres peuvent continuer pour le classement, abandonner, ou arrêter la partie.
 Avec « 2 mots par binôme », quand le binôme trouve, les rôles s'inversent avec un nouveau mot ; il a fini quand chacun a trouvé le sien.
 
+**Mode fun à 2 ou 3 joueurs** : une seule équipe, sans classement ; on enchaîne les mots (rôles qui tournent à chaque mot trouvé ou abandonné) et un bilan s'affiche à la fin.
+
 Nombre impair : le dernier groupe est un trio, mais à chaque tour un seul joueur devine et un seul répond, donc mêmes conditions qu'un binôme.
 
 **📱 Téléphone sur le front** : mêmes règles que le post-it. Le téléphone, à l'horizontale sur le front de celui qui devine, affiche son mot et le chrono.

@@ -268,6 +268,10 @@
   }
 
   function renderPlayers() {
+    const n = settings.players.length;
+    $("#players-hint").textContent = n >= 4
+      ? "L'appli formera des binômes (un trio si nombre impair), avec classement."
+      : "À 2 ou 3 joueurs : mode fun, sans classement, on enchaîne les mots. Dès 4 joueurs : binômes et classement.";
     const box = $("#players");
     box.innerHTML = "";
     settings.players.forEach((p, i) => {
@@ -498,7 +502,8 @@
     fh.phase = "asked";
     const left = Math.max(0, settings.turnTime * 1000 - fh.banked);
     $("#fh-ask-time").textContent = `Chrono en pause · il reste ${Math.ceil(left / 1000)} s`;
-    $("#btn-ask-giveup").hidden = !pi.teams.some((o) => o !== t && isDone(o));
+    $("#btn-ask-giveup").hidden = !canGiveUpNow(t);
+    $("#btn-ask-giveup").textContent = pi.solo ? "Abandonner ce mot" : "Abandonner";
     show("fh-ask");
   }
 
@@ -510,7 +515,7 @@
   $("#btn-ask-resume").addEventListener("click", () => { unlockAudio(); enterReady(); });
   $("#btn-ask-giveup").addEventListener("click", () => {
     const t = fh.team;
-    if (!confirm(`${teamName(t)} abandonne ?`)) return;
+    if (!confirm(giveUpQuestion(t))) return;
     endFrontRuntime();
     teamGiveUp(t);
   });
@@ -552,8 +557,10 @@
   //  - front   : le téléphone sur le front affiche le mot ; le retirer met le chrono en pause.
   // Nombre impair : le dernier groupe est un trio, toujours avec un seul joueur qui devine et un seul
   // qui répond par tour, pour garder les mêmes conditions qu'un binôme.
+  // Mode fun (2 ou 3 joueurs, pi.solo) : une seule équipe, pas de classement ; on enchaîne les mots
+  // (rôles inversés à chaque mot trouvé ou abandonné) jusqu'à « Terminer ».
   const pi = {
-    kind: "postit", target: 1, teams: [], deck: [], cur: 0, round: 1, winnerShown: false,
+    kind: "postit", target: 1, solo: false, teams: [], deck: [], cur: 0, round: 1, winnerShown: false,
     dealQueue: [], dealInitial: false, afterReveal: null,
     timerId: null, startedAt: 0, banked: 0, running: false
   };
@@ -564,11 +571,11 @@
   const plural = (n, w) => `${n} ${w}${n > 1 ? "s" : ""}`;
 
   function guesserOf(t) {
-    return t.members[t.score % t.members.length];
+    return t.members[t.wordIdx % t.members.length];
   }
   function answererOf(t) {
     const others = t.members.filter((m) => m !== guesserOf(t));
-    return others[t.wordTurns % others.length];
+    return others[(t.wordIdx + t.wordTurns) % others.length];
   }
 
   // 83400 -> "1:23" ou "1:23,4" ; 9000 -> "9 s"
@@ -594,6 +601,7 @@
   function newWord(t) {
     t.word = null;
     t.word = drawWord();
+    t.wordTime = 0;
     t.skipsLeft = settings.skips;
     t.seen = false;
   }
@@ -613,13 +621,16 @@
     const groups = [];
     while (ps.length >= 2) groups.push(ps.splice(0, 2));
     if (ps.length) groups[groups.length - 1].push(ps[0]); // trio
-    pi.teams = groups.map((members) => ({ members, word: null, time: 0, turns: 0, wordTurns: 0, score: 0, gaveUp: false }));
+    pi.teams = groups.map((members) => ({
+      members, word: null, time: 0, turns: 0, wordTurns: 0, wordIdx: 0, wordTime: 0, score: 0, gaveUp: false, history: []
+    }));
   }
 
   function startTeams(kind) {
-    if (settings.players.length < 4) return toast("Il faut au moins 4 joueurs (2 binômes)");
+    if (settings.players.length < 2) return toast("Il faut au moins 2 joueurs");
     pi.kind = kind;
-    pi.target = settings.pairWords;
+    pi.solo = settings.players.length < 4;
+    pi.target = pi.solo ? Infinity : settings.pairWords;
     pi.deck = buildDeck();
     if (!pi.deck.length) return toast("Aucun mot dans ces catégories");
     makeTeams();
@@ -628,6 +639,15 @@
   }
 
   function renderTeams() {
+    if (pi.solo) {
+      const t = pi.teams[0];
+      $("#pi-teams-hint").textContent = "Mode fun : pas de classement, on enchaîne les mots juste pour le plaisir. " +
+        "Les rôles changent à chaque mot trouvé ou abandonné. 🤔 devine · 💬 répond par oui, non, peut-être ou je ne sais pas.";
+      $("#pi-teams-list").innerHTML = `<li class="team"><span class="team-num">🎉</span><span>
+        <span class="role">🔄 Devinent à tour de rôle : <b>${t.members.map(esc).join("</b>, <b>")}</b></span>
+        <span class="role">💬 ${t.members.length > 2 ? "Les autres répondent à tour de rôle" : "L'autre répond"}</span></span></li>`;
+      return;
+    }
     const odd = settings.players.length % 2 === 1;
     const intro = pi.target > 1 ? "Quand un mot est trouvé, les rôles s'inversent avec un nouveau mot." : "Un mot par binôme.";
     $("#pi-teams-hint").textContent = `${intro} 🤔 devine · 💬 répond par oui, non, peut-être ou je ne sais pas.` +
@@ -699,7 +719,7 @@
   function showTurn() {
     const t = pi.teams[pi.cur];
     const g = guesserOf(t), a = answererOf(t);
-    $("#pi-round").textContent = `Tour ${pi.round}`;
+    $("#pi-round").textContent = pi.solo ? `Mot ${t.wordIdx + 1}` : `Tour ${pi.round}`;
     $("#pi-turn-name").textContent = teamName(t);
     $("#pi-turn-roles").innerHTML = `🤔 <b>${esc(g)}</b> devine · 💬 <b>${esc(a)}</b> répond`;
     $("#pi-turn-hint").textContent =
@@ -709,7 +729,9 @@
         : settings.support === "screen"
           ? `${g} pose le téléphone sur son front, écran vers ${a}, qui touche « Trouvé » dès que c'est trouvé.`
           : `${a} lance le chrono et touche « Trouvé » dès que c'est trouvé.`;
-    $("#pi-board").innerHTML = pi.teams.map((q, i) => {
+    $("#pi-board-title").textContent = pi.solo ? "Mots joués" : "Chronos";
+    if (pi.solo) $("#pi-board").innerHTML = soloHistory(t) || `<li><span class="n">Aucun mot pour l'instant</span></li>`;
+    else $("#pi-board").innerHTML = pi.teams.map((q, i) => {
       const progress = pi.target > 1 ? `${q.score}/${pi.target} · ` : "";
       const status = isDone(q) ? "✓ " + fmt(q.time, true) : q.gaveUp ? "abandon" : progress + fmt(q.time) + " · " + plural(q.turns, "tour");
       return `<li class="${i === pi.cur ? "current" : ""} ${q.gaveUp ? "out" : ""}">
@@ -723,16 +745,24 @@
       : pi.kind === "front"
         ? `<button class="primary" id="pi-go">📱 C'est parti (${settings.turnTime} s)</button>`
         : `<button class="primary" id="pi-go">▶ Lancer le chrono (${settings.turnTime} s)</button>`;
-    // Abandon possible dès qu'une autre équipe a fini
-    const canGiveUp = pi.teams.some((o) => o !== t && isDone(o));
-    if (canGiveUp) actions.innerHTML += `<button class="secondary" id="pi-giveup">Ce binôme abandonne</button>`;
+    // Abandon possible dès qu'une autre équipe a fini (en mode fun : abandon du mot, à tout moment)
+    const canGiveUp = canGiveUpNow(t);
+    if (canGiveUp) actions.innerHTML += `<button class="secondary" id="pi-giveup">${pi.solo ? "🏳 Abandonner ce mot" : "Ce binôme abandonne"}</button>`;
     actions.innerHTML += `<button class="link-btn" id="pi-stop">Terminer la partie</button>`;
     $("#pi-go").onclick = () => { unlockAudio(); peek ? showPeek(false) : startTurn(); };
     if (canGiveUp) $("#pi-giveup").onclick = () => {
-      if (confirm(`${teamName(t)} abandonne ?`)) teamGiveUp(t);
+      if (confirm(giveUpQuestion(t))) teamGiveUp(t);
     };
-    $("#pi-stop").onclick = () => { if (confirm("Terminer la partie et voir le classement ?")) endPostit(); };
+    $("#pi-stop").onclick = () => { if (confirm(pi.solo ? "Terminer la partie et voir le bilan ?" : "Terminer la partie et voir le classement ?")) endPostit(); };
     show("pi-turn");
+  }
+
+  const canGiveUpNow = (t) => pi.solo || pi.teams.some((o) => o !== t && isDone(o));
+  const giveUpQuestion = (t) => pi.solo ? "Abandonner ce mot ?" : `${teamName(t)} abandonne ?`;
+
+  function soloHistory(t) {
+    return t.history.slice().reverse().map((h) => `<li class="${h.found ? "" : "out"}">
+      <span class="n">${esc(h.word)}</span><span class="w">${h.found ? "✓ " + fmt(h.time, true) : "abandonné"}</span></li>`).join("");
   }
 
   function startTurn() {
@@ -829,6 +859,17 @@
 
   // ----- Issues d'un tour (communes post-it / front) -----
   function teamGiveUp(t) {
+    if (pi.solo) {
+      // Mode fun : on abandonne seulement le mot, les rôles s'inversent avec un nouveau mot
+      const word = t.word;
+      t.history.push({ word, found: false });
+      t.wordIdx++;
+      t.wordTurns = 0;
+      newWord(t);
+      const idx = pi.cur;
+      pi.afterReveal = pi.kind === "postit" && settings.support === "paper" ? () => startDeal([idx], false) : null;
+      return reveal("Mot abandonné. C'était :", word, `Au tour de ${guesserOf(t)} de deviner !`);
+    }
     t.gaveUp = true;
     pi.afterReveal = null;
     reveal(`${teamName(t)} abandonne. Le mot était :`, t.word, "");
@@ -838,8 +879,11 @@
     const t = pi.teams[pi.cur];
     const word = t.word;
     t.time += used;
+    t.wordTime += used;
+    t.history.push({ word, found: true, time: t.wordTime });
     t.turns++;
     t.score++;
+    t.wordIdx++;
     t.wordTurns = 0;
     sfx.ok();
     buzz(80);
@@ -852,8 +896,9 @@
     newWord(t);
     const idx = pi.cur;
     pi.afterReveal = pi.kind === "postit" && settings.support === "paper" ? () => startDeal([idx], false) : null;
-    reveal(`Bravo ! 🎉 C'était :`, word,
-      `${t.score}/${pi.target} · ${fmt(t.time, true)} au compteur. Rôles inversés : ${guesserOf(t)} devinera un nouveau mot au prochain tour.`);
+    reveal(`Bravo ! 🎉 C'était :`, word, pi.solo
+      ? `Trouvé en ${fmt(t.history[t.history.length - 1].time, true)}. Au tour de ${guesserOf(t)} de deviner !`
+      : `${t.score}/${pi.target} · ${fmt(t.time, true)} au compteur. Rôles inversés : ${guesserOf(t)} devinera un nouveau mot au prochain tour.`);
   }
 
   function turnOver() {
@@ -864,13 +909,17 @@
   function teamTimeout() {
     const t = pi.teams[pi.cur];
     t.time += turnMs();
+    t.wordTime += turnMs();
     t.turns++;
     t.wordTurns++;
     sfx.end();
     buzz([100, 60, 100]);
     $("#pi-timeup-logo").textContent = "⏰";
     $("#pi-timeup-title").textContent = "Temps écoulé !";
-    $("#pi-timeup-msg").textContent = `${teamName(t)} : ${fmt(t.time)} au compteur. On passe au binôme suivant !`;
+    $("#pi-timeup-msg").textContent = pi.solo
+      ? `Toujours le même mot, ${fmt(t.wordTime)} au compteur. On repart pour un tour !`
+      : `${teamName(t)} : ${fmt(t.time)} au compteur. On passe au binôme suivant !`;
+    $("#btn-timeup-next").textContent = pi.solo ? "Tour suivant" : "Binôme suivant";
     $("#pi-timeup-recap").innerHTML = "";
     show("pi-timeup");
   }
@@ -919,6 +968,23 @@
 
   function endPostit() {
     stopClock();
+    $("#pi-end-logo").textContent = pi.solo ? "🎉" : "🏆";
+    if (pi.solo) {
+      const t = pi.teams[0];
+      const found = t.history.filter((h) => h.found);
+      const total = found.reduce((sum, h) => sum + h.time, 0);
+      $("#pi-end-title").textContent = "Bilan";
+      $("#pi-end-sub").textContent = found.length
+        ? `${plural(found.length, "mot")} trouvé${found.length > 1 ? "s" : ""}, en moyenne ${fmt(total / found.length, true)} par mot`
+        : "Aucun mot trouvé… la revanche s'impose !";
+      $("#pi-ranking").innerHTML = "";
+      $("#pi-recap").innerHTML = soloHistory(t);
+      sfx.end();
+      return show("pi-end");
+    }
+    $("#pi-end-title").textContent = "Classement";
+    $("#pi-end-sub").textContent = "";
+    $("#pi-recap").innerHTML = "";
     // Terminés d'abord (au temps), puis les autres (au nombre de mots, puis au temps)
     const ranked = [...pi.teams].sort((a, b) =>
       (isDone(b) - isDone(a)) || (isDone(a) ? a.time - b.time : (b.score - a.score) || (a.time - b.time)));
