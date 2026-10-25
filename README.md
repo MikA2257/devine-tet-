@@ -31,7 +31,8 @@ films & séries, contes/livres & BD, jeux vidéo), plus une catégorie **Mes mot
 
 **📡 Plusieurs téléphones** : dans les réglages, « Inviter d'autres téléphones » affiche un code (et un lien à envoyer).
 Les autres joueurs touchent « Rejoindre une partie » sur l'accueil et entrent le code : leur téléphone affiche le chrono,
-les équipes et le mot en cours (caché pour celui qui devine). La partie reste pilotée par le téléphone hôte.
+les équipes et le mot en cours (caché pour celui qui devine). Le téléphone de celui qui répond affiche en plus
+les boutons **Trouvé** et **Pause / Reprendre** ; le reste de la partie se pilote depuis le téléphone hôte.
 Mise en relation via le service public gratuit PeerJS, puis connexion directe entre téléphones ; Internet nécessaire.
 
 ## Installer sur iPhone

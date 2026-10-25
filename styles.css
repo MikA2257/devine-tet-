@@ -300,3 +300,5 @@ textarea {
 .mp-names { position: absolute; inset: 0; background: rgba(13,8,32,.92); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 10; }
 .mp-names[hidden] { display: none; }
 .mp-names-box { width: min(100%, 380px); text-align: center; max-height: 100%; overflow-y: auto; }
+.mp-actions { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; margin: 6px 0 4px; }
+.mp-actions[hidden] { display: none; }

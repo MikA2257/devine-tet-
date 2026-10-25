@@ -1096,6 +1096,7 @@
         conn.on("open", () => { mp.conns.push(conn); updateChips(); sendSnap(conn); });
         conn.on("close", () => { mp.conns = mp.conns.filter((c) => c !== conn); updateChips(); });
         conn.on("error", () => {});
+        conn.on("data", (d) => onGuestMessage(conn, d));
       });
       peer.on("disconnected", () => { if (mp.role === "host" && !peer.destroyed) peer.reconnect(); });
       peer.on("error", (e) => {
@@ -1207,6 +1208,34 @@
     return snap;
   }
 
+  // Commandes envoyées par le téléphone de celui qui répond : Trouvé / Pause / Reprendre
+  function onGuestMessage(conn, d) {
+    if (!d || typeof d !== "object") return;
+    if (d.type === "hello") { conn.mpName = typeof d.name === "string" ? d.name : ""; return; }
+    if (d.type !== "cmd") return;
+    const t = pi.teams[pi.cur];
+    // Seul celui qui répond pendant ce tour peut piloter le chrono
+    if (!t || !conn.mpName || conn.mpName !== answererOf(t)) return;
+    const screen = ($(".screen.active") || {}).id;
+    const who = conn.mpName;
+    if (screen === "pi-timer") {
+      if (d.cmd === "found") $("#btn-found").click();
+      else if ((d.cmd === "pause" && pi.running) || (d.cmd === "resume" && !pi.running)) {
+        $("#btn-pause").click();
+        toast(d.cmd === "pause" ? `Pause demandée par ${who}` : `${who} relance le chrono`);
+      }
+    } else if (screen === "fh-play") {
+      if (d.cmd === "pause" || d.cmd === "found") pauseFront();
+      if (d.cmd === "found") $("#btn-ask-found").click();
+      else if (d.cmd === "pause") toast(`Pause demandée par ${who}`);
+    } else if (screen === "fh-ask") {
+      if (d.cmd === "found") $("#btn-ask-found").click();
+      if (d.cmd === "resume") $("#btn-ask-resume").click();
+    }
+    // Retour immédiat aux invités
+    mp.lastKey = "";
+  }
+
   function sendSnap(conn) {
     try { conn.send({ type: "snap", snap: snapshot() }); } catch {}
   }
@@ -1269,6 +1298,7 @@
     const conn = mp.peer.connect(peerId(mp.code), { reliable: true });
     mp.conn = conn;
     conn.on("open", () => {
+      sayHello();
       $("#mp-head").textContent = `Partie ${mp.code}`;
       if (!$("#mp-view").classList.contains("active")) show("mp-view");
       keepAwake(true);
@@ -1280,6 +1310,17 @@
       scheduleRetry();
     });
   }
+
+  function sayHello() {
+    try { if (mp.conn && mp.conn.open) mp.conn.send({ type: "hello", name: mp.me || "" }); } catch {}
+  }
+
+  function sendCmd(cmd) {
+    try { mp.conn.send({ type: "cmd", cmd }); } catch { toast("Pas de connexion avec l'hôte"); }
+    buzz(40);
+  }
+  $("#mp-found").addEventListener("click", () => sendCmd("found"));
+  $("#mp-pause").addEventListener("click", () => sendCmd(mp.snap && mp.snap.clock && mp.snap.clock.running ? "pause" : "resume"));
 
   function scheduleRetry() {
     clearTimeout(mp.retryId);
@@ -1302,6 +1343,7 @@
       const i = Number(b.dataset.i);
       mp.me = i < 0 ? "" : players[i];
       store.set("mpName", mp.me);
+      sayHello();
       $("#mp-names").hidden = true;
       if (mp.snap) renderGuest(mp.snap);
     }));
@@ -1346,6 +1388,11 @@
       tick();
       if (s.clock.running) mp.clockId = setInterval(tick, 200);
     }
+
+    // Boutons pour celui qui répond pendant le tour
+    const answering = !!(mp.me && s.roles && mp.me === s.roles.a && s.clock);
+    $("#mp-actions").hidden = !answering;
+    if (answering) $("#mp-pause").textContent = s.clock.running ? "⏸ Pause" : "▶ Reprendre";
 
     $("#mp-list-title").textContent = s.listTitle;
     $("#mp-list").innerHTML = s.list.map((r) => `<li class="${r.cur ? "current" : ""} ${r.out ? "out" : ""}">
