@@ -22,7 +22,6 @@
     support: "paper",
     turnTime: 45,
     rules: "team",
-    target: 3,
     pairWords: 2
   }, store.get("settings", {}));
   const saveSettings = () => store.set("settings", settings);
@@ -152,7 +151,7 @@
       this.handler = (e) => {
         if (e.beta == null || e.gamma == null) return;
         const r = Math.PI / 180;
-        cb(Math.cos(e.beta * r) * Math.cos(e.gamma * r));
+        cb(Math.cos(e.beta * r) * Math.cos(e.gamma * r), Math.sin(e.beta * r));
       };
       window.addEventListener("deviceorientation", this.handler);
     },
@@ -195,7 +194,6 @@
     $("#setup-title").textContent = mode === "front" ? "📱 Sur le front" : "🟨 Post-it en binômes";
     renderCats();
     renderSeg("#seg-rules", settings.rules);
-    renderSeg("#seg-target", String(settings.target));
     renderSeg("#seg-pairwords", String(settings.pairWords));
     renderSeg("#seg-duration", String(settings.duration));
     renderSeg("#seg-control", settings.control);
@@ -239,7 +237,6 @@
   bindSeg("#seg-support", "support");
   bindSeg("#seg-turn", "turnTime", true);
   bindSeg("#seg-rules", "rules");
-  bindSeg("#seg-target", "target", true);
   bindSeg("#seg-pairwords", "pairWords", true);
 
   // Affiche les options utiles selon le mode et les règles
@@ -248,7 +245,7 @@
     const teams = !front || settings.rules === "team";
     $("#opts-rules").hidden = !front;
     $("#opts-players").hidden = !teams;
-    $("#opts-target").hidden = !(front && teams);
+    $("#opts-pairwords").hidden = !teams;
     $("#opts-duration").hidden = !(front && !teams);
     $("#opts-control").hidden = !front;
     $("#opts-postit").hidden = front;
@@ -257,14 +254,19 @@
   function updateHints() {
     updateOptions();
     $("#rules-hint").textContent = settings.rules === "team"
-      ? "L'appli forme les binômes. Chacun son tour, le binôme qui trouve ses mots le plus vite gagne. Les rôles s'inversent à chaque tour."
+      ? "Mêmes règles que le post-it : l'appli forme les binômes, chacun son tour avec un chrono, le binôme le plus rapide gagne."
       : "Une manche chronométrée : un maximum de mots en un temps donné.";
     $("#pairwords-hint").textContent = settings.pairWords === 2
       ? "Quand le binôme trouve, les rôles s'inversent et il reçoit un nouveau mot. Il a fini quand chacun a trouvé le sien."
       : "Un seul mot par binôme, toujours le même joueur qui devine.";
+    const team = settings.rules === "team";
     $("#control-hint").textContent = settings.control === "tilt"
-      ? "Téléphone à l'horizontale sur le front, écran vers les autres. Penche la tête en avant = trouvé, en arrière = passer."
-      : "Des boutons « Passer » et « Trouvé » s'affichent à l'écran (pratique si un ami tient le téléphone).";
+      ? (team
+        ? "Téléphone à l'horizontale sur le front, écran vers le coéquipier. Dès qu'on le retire du front, le chrono se met en pause et l'appli demande si le mot est trouvé."
+        : "Téléphone à l'horizontale sur le front, écran vers les autres. Penche la tête en avant = trouvé, en arrière = passer.")
+      : (team
+        ? "Un bouton « Pause » s'affiche à l'écran : le coéquipier le touche pour arrêter le chrono."
+        : "Des boutons « Passer » et « Trouvé » s'affichent à l'écran (pratique si un ami tient le téléphone).");
     $("#support-hint").textContent = settings.support === "paper"
       ? "L'appli montre le mot de chaque binôme : le coéquipier l'écrit sur le post-it sans que celui qui devine ne le voie."
       : "Pas de papier : celui qui devine pose le téléphone sur son front, le mot et le chrono s'affichent pour son coéquipier.";
@@ -308,7 +310,9 @@
   // Quitter une partie en cours
   $$("[data-quit]").forEach((b) => b.addEventListener("click", () => {
     if (fh.team && fh.phase !== "idle") {
-      // En binômes, on annule seulement le tour en cours (non compté)
+      // En binômes : pause du tour plutôt que quitter la partie
+      if (fh.phase === "play") return pauseFront();
+      if (fh.banked > 0) return showAsk();
       if (confirm("Annuler ce tour ? Il ne sera pas compté.")) {
         endFrontRuntime();
         showTurn();
@@ -325,10 +329,13 @@
   // =====================================================
   //                 MODE TÉLÉPHONE SUR LE FRONT
   // =====================================================
+  // Classique : un maximum de mots en une manche, inclinaison = trouvé / passer.
+  // Binômes (fh.team) : mêmes règles que le post-it, un seul mot affiché ; dès que le téléphone
+  // quitte le front, le chrono se met en pause et on demande si le mot a été trouvé.
   const fh = {
     deck: [], idx: 0, results: [], word: null,
-    useTilt: false, phase: "idle",   // idle | ready | count | play | feedback | over
-    team: null, playStart: 0, doneAt: 0,
+    useTilt: false, phase: "idle",   // idle | ready | count | play | feedback | asked | over
+    team: null, banked: 0, playStart: 0, offSince: 0,
     timerId: null, endAt: 0, stableSince: 0, gotSensor: false,
     sensorCheck: null, countTimer: null, feedbackUntil: 0
   };
@@ -344,6 +351,7 @@
   function launchFront(team) {
     fh.team = team;
     fh.results = [];
+    fh.banked = 0;
     fh.useTilt = settings.control === "tilt";
 
     if (fh.useTilt) {
@@ -364,14 +372,15 @@
     fh.phase = "ready";
     fh.gotSensor = false;
     fh.stableSince = 0;
+    const who = fh.team ? guesserOf(fh.team) + ", " : "";
+    const again = fh.banked > 0;
     $("#ready-count").textContent = "";
-    $("#ready-msg").textContent = fh.team
-      ? (fh.useTilt ? `${guesserOf(fh.team)}, place le téléphone sur ton front` : `${guesserOf(fh.team)}, prêt ?`)
-      : (fh.useTilt ? "Place le téléphone sur ton front" : "Prêt ?");
+    $("#ready-msg").textContent = fh.useTilt
+      ? `${who}${again ? "remets" : "place"} le téléphone sur ton front`
+      : (fh.team ? `${who}prêt ?` : "Prêt ?");
     $("#btn-ready").hidden = fh.useTilt;
     show("fh-ready");
     keepAwake(true);
-    onLeave = null;
 
     if (fh.useTilt) {
       Tilt.start(onTilt);
@@ -408,15 +417,22 @@
     step();
   }
 
-  function onTilt(up) {
+  // up : +1 écran vers le plafond, -1 vers le sol ; side : ~±1 si le téléphone est tenu en portrait
+  function onTilt(up, side) {
     fh.gotSensor = true;
     const now = performance.now();
+    const onForehead = Math.abs(up) < 0.5 && Math.abs(side) < 0.6;
     if (fh.phase === "ready") {
       // On attend que le téléphone soit vertical et stable sur le front
       if (Math.abs(up) < 0.35) {
         if (!fh.stableSince) fh.stableSince = now;
         else if (now - fh.stableSince > 700) startCountdown();
       } else fh.stableSince = 0;
+    } else if (fh.phase === "play" && fh.team) {
+      // Téléphone redressé / retiré du front : pause
+      if (onForehead) fh.offSince = 0;
+      else if (!fh.offSince) fh.offSince = now;
+      else if (now - fh.offSince > 350) pauseFront();
     } else if (fh.phase === "play") {
       if (up < -0.6) answer(true);
       else if (up > 0.6) answer(false);
@@ -426,13 +442,24 @@
   }
 
   function beginPlay() {
+    const t = fh.team;
     $("#tap-zones").classList.toggle("show", !fh.useTilt);
-    $("#fh-score").textContent = fh.team ? `${fh.team.score}/${pi.target}` : "0";
+    $("#tap-zones").classList.toggle("pause-only", !!t);
+    $("#fh-score").hidden = !!t;
+    $("#fh-score").textContent = "0";
     fh.playStart = performance.now();
-    fh.endAt = fh.playStart + (fh.team ? settings.turnTime : settings.duration) * 1000;
+    fh.offSince = 0;
+    fh.endAt = fh.playStart + (t ? settings.turnTime * 1000 - fh.banked : settings.duration * 1000);
     show("fh-play");
     sfx.go();
-    nextWord();
+    if (t) {
+      fh.word = t.word;
+      $("#fh-word").textContent = t.word;
+      $("#fh-flash").className = "flash";
+      fh.phase = "play";
+    } else {
+      nextWord();
+    }
     let lastSec = null;
     clearInterval(fh.timerId);
     fh.timerId = setInterval(() => {
@@ -461,42 +488,68 @@
   }
 
   function answer(ok) {
-    if (fh.phase !== "play") return;
+    if (fh.phase !== "play" || fh.team) return;
     fh.results.push({ word: fh.word, ok });
-    const t = fh.team;
-    if (t && ok) t.score++;
-    $("#fh-score").textContent = t ? `${t.score}/${pi.target}` : fh.results.filter((r) => r.ok).length;
+    $("#fh-score").textContent = fh.results.filter((r) => r.ok).length;
     const flash = $("#fh-flash");
     flash.textContent = ok ? "Trouvé !" : "Passe";
     flash.className = "flash " + (ok ? "ok" : "pass");
     ok ? sfx.ok() : sfx.pass();
     buzz(ok ? 60 : [30, 40, 30]);
-    if (t && t.score >= pi.target) {
-      // Tous les mots trouvés : le chrono du binôme s'arrête ici
-      fh.doneAt = performance.now();
-      fh.phase = "over";
-      clearInterval(fh.timerId);
-      Tilt.stop();
-      setTimeout(() => finishFrontTurn(true), 900);
-      return;
-    }
     fh.phase = "feedback";
     fh.feedbackUntil = performance.now() + 700;
     if (!fh.useTilt) setTimeout(() => { if (fh.phase === "feedback") nextWord(); }, 650);
   }
 
-  $$("#tap-zones button").forEach((b) => b.addEventListener("click", () => answer(b.dataset.act === "ok")));
+  $$("#tap-zones button").forEach((b) => b.addEventListener("click", () => {
+    if (b.dataset.act === "pause") pauseFront();
+    else answer(b.dataset.act === "ok");
+  }));
 
   document.addEventListener("keydown", (e) => {
-    if (fh.phase === "play") {
-      if (e.key === "ArrowDown") answer(true);
-      if (e.key === "ArrowUp") answer(false);
-    }
+    if (fh.phase !== "play") return;
+    if (fh.team && e.key === " ") pauseFront();
+    if (e.key === "ArrowDown") answer(true);
+    if (e.key === "ArrowUp") answer(false);
+  });
+
+  // ----- Pause (binômes) : le mot est caché, on demande ce qui s'est passé -----
+  function pauseFront() {
+    if (fh.phase !== "play" || !fh.team) return;
+    fh.banked += performance.now() - fh.playStart;
+    clearInterval(fh.timerId);
+    clearTimeout(fh.sensorCheck);
+    Tilt.stop();
+    sfx.tick();
+    buzz(60);
+    showAsk();
+  }
+
+  function showAsk() {
+    const t = fh.team;
+    fh.phase = "asked";
+    const left = Math.max(0, settings.turnTime * 1000 - fh.banked);
+    $("#fh-ask-time").textContent = `Chrono en pause · il reste ${Math.ceil(left / 1000)} s`;
+    $("#btn-ask-giveup").hidden = !pi.teams.some((o) => o !== t && isDone(o));
+    show("fh-ask");
+  }
+
+  $("#btn-ask-found").addEventListener("click", () => {
+    const used = Math.min(fh.banked, settings.turnTime * 1000);
+    endFrontRuntime();
+    teamFound(used);
+  });
+  $("#btn-ask-resume").addEventListener("click", () => { unlockAudio(); enterReady(); });
+  $("#btn-ask-giveup").addEventListener("click", () => {
+    const t = fh.team;
+    if (!confirm(`${teamName(t)} abandonne ?`)) return;
+    endFrontRuntime();
+    teamGiveUp(t);
   });
 
   function timeUp() {
     if (fh.phase === "over") return;
-    if (fh.phase === "play" && fh.word) fh.results.push({ word: fh.word, ok: false });
+    if (fh.phase === "play" && fh.word && !fh.team) fh.results.push({ word: fh.word, ok: false });
     fh.phase = "over";
     clearInterval(fh.timerId);
     Tilt.stop();
@@ -505,7 +558,11 @@
     const flash = $("#fh-flash");
     flash.textContent = "Temps écoulé !";
     flash.className = "flash end";
-    setTimeout(fh.team ? () => finishFrontTurn(false) : showFrontResults, 1500);
+    setTimeout(() => {
+      if (!fh.team) return showFrontResults();
+      endFrontRuntime();
+      teamTimeout();
+    }, 1500);
   }
 
   function showFrontResults() {
@@ -531,34 +588,15 @@
 
   $("#btn-replay").addEventListener("click", () => { unlockAudio(); startFront(); });
 
-  // Fin du tour d'un binôme en mode front
-  function finishFrontTurn(done) {
-    const t = fh.team;
-    const turnMs = settings.turnTime * 1000;
-    t.time += done ? Math.min(fh.doneAt - fh.playStart, turnMs) : turnMs;
-    t.turns++;
-    const results = fh.results;
-    endFrontRuntime();
-    $("#pi-timeup-logo").textContent = done ? "🎉" : "⏰";
-    $("#pi-timeup-title").textContent = done ? "Tous les mots trouvés !" : "Temps écoulé !";
-    const found = results.filter((r) => r.ok).length;
-    $("#pi-timeup-msg").textContent = done
-      ? `${teamName(t)} termine en ${fmt(t.time, true)} (${t.turns} tour${t.turns > 1 ? "s" : ""}).`
-      : `${teamName(t)} : ${found} mot${found > 1 ? "s" : ""} ce tour, ${t.score}/${pi.target} au total, ${fmt(t.time)} au compteur.`;
-    $("#pi-timeup-recap").innerHTML = results
-      .map((r) => `<li class="${r.ok ? "ok" : "pass"}"><span>${esc(r.word)}</span><span>${r.ok ? "✓" : "✗"}</span></li>`).join("");
-    $("#btn-timeup-next").textContent = "Binôme suivant";
-    show("pi-timeup");
-  }
-
   // =====================================================
   //            PARTIE EN BINÔMES (post-it et front)
   // =====================================================
   // Un joueur devine en posant des questions, son coéquipier répond (oui / non / peut-être / je ne sais pas).
   // Les binômes jouent à tour de rôle pendant settings.turnTime secondes ; le temps s'additionne
   // jusqu'à ce que le binôme ait trouvé pi.target mots. Le plus petit temps cumulé gagne.
-  //  - post-it : un mot à la fois ; une fois trouvé, les rôles s'inversent avec un nouveau mot.
-  //  - front   : le téléphone fait défiler les mots (on peut passer) ; les rôles s'inversent à chaque tour.
+  // Un mot à la fois ; une fois trouvé, les rôles s'inversent avec un nouveau mot (si pi.target = 2).
+  //  - post-it : mot sur un vrai post-it ou sur l'écran, le coéquipier gère le chrono.
+  //  - front   : le téléphone sur le front affiche le mot ; le retirer met le chrono en pause.
   // Nombre impair : le dernier groupe est un trio, toujours avec un seul joueur qui devine et un seul
   // qui répond par tour, pour garder les mêmes conditions qu'un binôme.
   const pi = {
@@ -573,10 +611,9 @@
   const plural = (n, w) => `${n} ${w}${n > 1 ? "s" : ""}`;
 
   function guesserOf(t) {
-    return pi.kind === "front" ? t.members[t.turns % t.members.length] : t.members[t.score % t.members.length];
+    return t.members[t.score % t.members.length];
   }
   function answererOf(t) {
-    if (pi.kind === "front") return t.members[(t.turns + 1) % t.members.length];
     const others = t.members.filter((m) => m !== guesserOf(t));
     return others[t.wordTurns % others.length];
   }
@@ -611,7 +648,7 @@
   function startTeams(kind) {
     if (settings.players.length < 4) return toast("Il faut au moins 4 joueurs (2 binômes)");
     pi.kind = kind;
-    pi.target = kind === "front" ? settings.target : settings.pairWords;
+    pi.target = settings.pairWords;
     pi.deck = buildDeck();
     if (!pi.deck.length) return toast("Aucun mot dans ces catégories");
     makeTeams();
@@ -621,22 +658,14 @@
 
   function renderTeams() {
     const odd = settings.players.length % 2 === 1;
-    const intro = pi.kind === "front"
-      ? `Course à ${plural(pi.target, "mot")} par binôme. Les rôles s'inversent à chaque tour.`
-      : pi.target > 1 ? "Quand un mot est trouvé, les rôles s'inversent avec un nouveau mot." : "Un mot par binôme.";
+    const intro = pi.target > 1 ? "Quand un mot est trouvé, les rôles s'inversent avec un nouveau mot." : "Un mot par binôme.";
     $("#pi-teams-hint").textContent = `${intro} 🤔 devine · 💬 répond par oui, non, peut-être ou je ne sais pas.` +
       (odd ? " Nombre impair : il y a un trio, mais à chaque tour un seul devine et un seul répond, pour que ce soit équitable." : "");
     $("#pi-teams-list").innerHTML = pi.teams.map((t, i) => {
-      let lines;
-      if (pi.kind === "front") {
-        lines = `<span class="role">🔄 Devinent à tour de rôle : <b>${t.members.map(esc).join(", ")}</b></span>
-          <span class="role">💬 Le suivant répond</span>`;
-      } else {
-        const guessers = t.members.slice(0, Math.min(pi.target, t.members.length));
-        const others = t.members.filter((m) => m !== t.members[0]);
-        lines = `<span class="role">🤔 <b>${guessers.map(esc).join("</b> puis <b>")}</b> ${guessers.length > 1 ? "devinent chacun leur tour" : "devine"}</span>
-          <span class="role">💬 ${t.members.length > 2 ? "Les autres répondent à tour de rôle, un par tour" : pi.target > 1 ? "L'autre répond" : esc(others[0]) + " répond"}</span>`;
-      }
+      const guessers = t.members.slice(0, Math.min(pi.target, t.members.length));
+      const others = t.members.filter((m) => m !== t.members[0]);
+      const lines = `<span class="role">🤔 <b>${guessers.map(esc).join("</b> puis <b>")}</b> ${guessers.length > 1 ? "devinent chacun leur tour" : "devine"}</span>
+        <span class="role">💬 ${t.members.length > 2 ? "Les autres répondent à tour de rôle, un par tour" : pi.target > 1 ? "L'autre répond" : esc(others[0]) + " répond"}</span>`;
       return `<li class="team"><span class="team-num">${i + 1}</span><span>${lines}</span></li>`;
     }).join("");
   }
@@ -646,13 +675,8 @@
     pi.cur = 0;
     pi.round = 1;
     pi.winnerShown = false;
-    if (pi.kind === "front") {
-      fh.deck = pi.deck;
-      fh.idx = 0;
-      return showTurn();
-    }
     pi.teams.forEach((t) => { t.word = drawWord(); });
-    if (settings.support === "paper") startDeal(pi.teams.map((_, i) => i), true);
+    if (pi.kind === "postit" && settings.support === "paper") startDeal(pi.teams.map((_, i) => i), true);
     else showTurn();
   });
 
@@ -706,10 +730,10 @@
     $("#pi-round").textContent = `Tour ${pi.round}`;
     $("#pi-turn-name").textContent = teamName(t);
     $("#pi-turn-roles").innerHTML = `🤔 <b>${esc(g)}</b> devine · 💬 <b>${esc(a)}</b> répond`;
-    const left = pi.target - t.score;
     $("#pi-turn-hint").textContent =
       pi.kind === "front"
-        ? `${g} met le téléphone à l'horizontale sur son front. Encore ${plural(left, "mot")} à trouver. Penche en avant = trouvé, en arrière = passer.`
+        ? `${g} met le téléphone à l'horizontale sur son front, écran vers ${a}. ` +
+          (settings.control === "tilt" ? "Pour dire « trouvé », retire le téléphone du front : le chrono se met en pause." : `${a} touche « Pause » pour arrêter le chrono.`)
         : settings.support === "screen"
           ? `${g} pose le téléphone sur son front, écran vers ${a}, qui touche « Trouvé » dès que c'est trouvé.`
           : `${a} lance le chrono et touche « Trouvé » dès que c'est trouvé.`;
@@ -723,15 +747,13 @@
     actions.innerHTML = pi.kind === "front"
       ? `<button class="primary" id="pi-go">📱 C'est parti (${settings.turnTime} s)</button>`
       : `<button class="primary" id="pi-go">▶ Lancer le chrono (${settings.turnTime} s)</button>`;
-    if (pi.winnerShown) actions.innerHTML += `<button class="secondary" id="pi-giveup">Ce binôme abandonne</button>`;
+    // Abandon possible dès qu'une autre équipe a fini
+    const canGiveUp = pi.teams.some((o) => o !== t && isDone(o));
+    if (canGiveUp) actions.innerHTML += `<button class="secondary" id="pi-giveup">Ce binôme abandonne</button>`;
     actions.innerHTML += `<button class="link-btn" id="pi-stop">Terminer la partie</button>`;
     $("#pi-go").onclick = () => { unlockAudio(); pi.kind === "front" ? launchFront(t) : startClock(); };
-    if (pi.winnerShown) $("#pi-giveup").onclick = () => {
-      if (!confirm(`${teamName(t)} abandonne ?`)) return;
-      t.gaveUp = true;
-      if (pi.kind === "front") return advance();
-      pi.afterReveal = null;
-      reveal(`${teamName(t)} abandonne. Le mot était :`, t.word, "");
+    if (canGiveUp) $("#pi-giveup").onclick = () => {
+      if (confirm(`${teamName(t)} abandonne ?`)) teamGiveUp(t);
     };
     $("#pi-stop").onclick = () => { if (confirm("Terminer la partie et voir le classement ?")) endPostit(); };
     show("pi-turn");
@@ -791,10 +813,21 @@
   });
 
   $("#btn-found").addEventListener("click", () => {
-    const t = pi.teams[pi.cur];
     const used = Math.min(elapsed(), turnMs());
-    const word = t.word;
     stopClock();
+    teamFound(used);
+  });
+
+  // ----- Issues d'un tour (communes post-it / front) -----
+  function teamGiveUp(t) {
+    t.gaveUp = true;
+    pi.afterReveal = null;
+    reveal(`${teamName(t)} abandonne. Le mot était :`, t.word, "");
+  }
+
+  function teamFound(used) {
+    const t = pi.teams[pi.cur];
+    const word = t.word;
     t.time += used;
     t.turns++;
     t.score++;
@@ -809,14 +842,18 @@
     // Rôles inversés avec un nouveau mot
     t.word = drawWord();
     const idx = pi.cur;
-    pi.afterReveal = settings.support === "paper" ? () => startDeal([idx], false) : null;
+    pi.afterReveal = pi.kind === "postit" && settings.support === "paper" ? () => startDeal([idx], false) : null;
     reveal(`Bravo ! 🎉 C'était :`, word,
       `${t.score}/${pi.target} · ${fmt(t.time, true)} au compteur. Rôles inversés : ${guesserOf(t)} devinera un nouveau mot au prochain tour.`);
-  });
+  }
 
   function turnOver() {
-    const t = pi.teams[pi.cur];
     stopClock();
+    teamTimeout();
+  }
+
+  function teamTimeout() {
+    const t = pi.teams[pi.cur];
     t.time += turnMs();
     t.turns++;
     t.wordTurns++;
@@ -863,7 +900,7 @@
     pi.winnerShown = true;
     const best = pi.teams.filter(isDone).sort((a, b) => a.time - b.time)[0];
     $("#pi-winner-name").textContent = teamName(best);
-    $("#pi-winner-time").textContent = `en ${fmt(best.time, true)}` + (pi.kind === "postit" && pi.target === 1 ? ` · mot : ${best.word}` : "");
+    $("#pi-winner-time").textContent = `en ${fmt(best.time, true)}` + (pi.target === 1 ? ` · mot : ${best.word}` : "");
     $("#pi-winner-hint").textContent = "Les autres binômes peuvent continuer pour départager le classement, ou s'arrêter là.";
     sfx.ok();
     show("pi-winner");
@@ -877,7 +914,7 @@
     const ranked = [...pi.teams].sort((a, b) =>
       (isDone(b) - isDone(a)) || (isDone(a) ? a.time - b.time : (b.score - a.score) || (a.time - b.time)));
     $("#pi-ranking").innerHTML = ranked.map((t) => {
-      const words = pi.kind === "postit" && pi.target === 1 ? `<span class="w">${esc(t.word)}</span>` : "";
+      const words = pi.target === 1 ? `<span class="w">${esc(t.word)}</span>` : "";
       const status = isDone(t)
         ? fmt(t.time, true) + "<br>" + plural(t.turns, "tour")
         : (pi.target > 1 ? `${t.score}/${pi.target}<br>` : "") + (t.gaveUp ? "abandon" : "pas fini");

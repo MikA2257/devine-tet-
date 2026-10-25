@@ -31,7 +31,7 @@
       <span class="mode-emoji">📱</span>
       <span class="mode-text">
         <strong>Téléphone sur le front</strong>
-        <small>En binômes : le premier à trouver ses mots gagne. Incline vers le bas si tu trouves, vers le haut pour passer.</small>
+        <small>En binômes, le mot s'affiche sur ton front. Retire le téléphone pour mettre en pause et dire si c'est trouvé.</small>
       </span>
     </button>
 
@@ -79,13 +79,6 @@
       </div>
     </div>
 
-    <div id="opts-target">
-      <h3>Mots à trouver par binôme</h3>
-      <div class="seg" id="seg-target">
-        <button data-v="3">3</button><button data-v="5">5</button><button data-v="10">10</button>
-      </div>
-    </div>
-
     <div id="opts-duration">
       <h3>Durée de la manche</h3>
       <div class="seg" id="seg-duration">
@@ -101,12 +94,15 @@
       <p class="hint" id="control-hint"></p>
     </div>
 
-    <div id="opts-postit">
+    <div id="opts-pairwords">
       <h3>Mots par binôme</h3>
       <div class="seg" id="seg-pairwords">
         <button data-v="1">1 mot</button><button data-v="2">2 mots (rôles inversés)</button>
       </div>
       <p class="hint" id="pairwords-hint"></p>
+    </div>
+
+    <div id="opts-postit">
       <h3>Les post-it</h3>
       <div class="seg" id="seg-support">
         <button data-v="paper">Vrais post-it</button><button data-v="screen">Sur l'écran</button>
@@ -159,9 +155,25 @@
   <div class="tap-zones" id="tap-zones">
     <button data-act="pass">⬆︎ Passer</button>
     <button data-act="ok">Trouvé ✓</button>
+    <button data-act="pause">⏸ Pause</button>
   </div>
   <div id="fh-flash" class="flash"></div>
   <button class="quit" data-quit aria-label="Quitter">✕</button>
+</section>
+
+<!-- FRONT : PAUSE EN BINÔMES (mot caché) -->
+<section id="fh-ask" class="screen">
+  <div class="center col">
+    <div class="logo">⏸</div>
+    <h2>Pause</h2>
+    <div class="sub" id="fh-ask-time"></div>
+    <h2 class="ask-q">Le mot a été trouvé ?</h2>
+    <div class="stack">
+      <button class="primary ok" id="btn-ask-found">Oui, trouvé ! 🎉</button>
+      <button class="secondary" id="btn-ask-resume">Non, on reprend</button>
+      <button class="link-btn" id="btn-ask-giveup">Abandonner</button>
+    </div>
+  </div>
 </section>
 
 <!-- FRONT : FIN -->
