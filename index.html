@@ -31,7 +31,7 @@
       <span class="mode-emoji">📱</span>
       <span class="mode-text">
         <strong>Téléphone sur le front</strong>
-        <small>Incline vers le bas si tu trouves, vers le haut pour passer. Chrono !</small>
+        <small>En binômes : le premier à trouver ses mots gagne. Incline vers le bas si tu trouves, vers le haut pour passer.</small>
       </span>
     </button>
 
@@ -58,19 +58,15 @@
     <h3>Catégories</h3>
     <div class="cats" id="cats"></div>
 
-    <div id="opts-front">
-      <h3>Durée de la manche</h3>
-      <div class="seg" id="seg-duration">
-        <button data-v="30">30 s</button><button data-v="60">60 s</button><button data-v="90">90 s</button><button data-v="120">2 min</button>
+    <div id="opts-rules">
+      <h3>Règles</h3>
+      <div class="seg" id="seg-rules">
+        <button data-v="team">Course en binômes</button><button data-v="classic">Classique</button>
       </div>
-      <h3>Contrôle</h3>
-      <div class="seg" id="seg-control">
-        <button data-v="tilt">Inclinaison</button><button data-v="tap">Boutons</button>
-      </div>
-      <p class="hint" id="control-hint"></p>
+      <p class="hint" id="rules-hint"></p>
     </div>
 
-    <div id="opts-postit">
+    <div id="opts-players">
       <h3>Joueurs</h3>
       <div id="players"></div>
       <form class="add-player" id="add-player">
@@ -81,6 +77,36 @@
       <div class="seg" id="seg-turn">
         <button data-v="30">30 s</button><button data-v="45">45 s</button><button data-v="60">60 s</button><button data-v="90">90 s</button>
       </div>
+    </div>
+
+    <div id="opts-target">
+      <h3>Mots à trouver par binôme</h3>
+      <div class="seg" id="seg-target">
+        <button data-v="3">3</button><button data-v="5">5</button><button data-v="10">10</button>
+      </div>
+    </div>
+
+    <div id="opts-duration">
+      <h3>Durée de la manche</h3>
+      <div class="seg" id="seg-duration">
+        <button data-v="30">30 s</button><button data-v="60">60 s</button><button data-v="90">90 s</button><button data-v="120">2 min</button>
+      </div>
+    </div>
+
+    <div id="opts-control">
+      <h3>Contrôle</h3>
+      <div class="seg" id="seg-control">
+        <button data-v="tilt">Inclinaison</button><button data-v="tap">Boutons</button>
+      </div>
+      <p class="hint" id="control-hint"></p>
+    </div>
+
+    <div id="opts-postit">
+      <h3>Mots par binôme</h3>
+      <div class="seg" id="seg-pairwords">
+        <button data-v="1">1 mot</button><button data-v="2">2 mots (rôles inversés)</button>
+      </div>
+      <p class="hint" id="pairwords-hint"></p>
       <h3>Les post-it</h3>
       <div class="seg" id="seg-support">
         <button data-v="paper">Vrais post-it</button><button data-v="screen">Sur l'écran</button>
@@ -217,9 +243,10 @@
 <!-- BINÔMES : TEMPS ÉCOULÉ -->
 <section id="pi-timeup" class="screen">
   <div class="center col">
-    <div class="logo">⏰</div>
-    <h2>Temps écoulé !</h2>
+    <div class="logo" id="pi-timeup-logo">⏰</div>
+    <h2 id="pi-timeup-title">Temps écoulé !</h2>
     <div class="sub" id="pi-timeup-msg"></div>
+    <ul class="recap mini" id="pi-timeup-recap"></ul>
     <div class="stack"><button class="primary" id="btn-timeup-next">Binôme suivant</button></div>
   </div>
 </section>

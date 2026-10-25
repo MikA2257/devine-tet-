@@ -275,3 +275,5 @@ textarea {
 .timer-postit[hidden] { display: none; }
 .timer-roles { font-size: 20px; line-height: 1.6; color: var(--muted); }
 .timer-roles b { color: #fff; }
+.recap.mini { width: min(100%, 360px); max-height: 34vh; overflow-y: auto; margin-top: 8px; }
+.recap.mini:empty { display: none; }

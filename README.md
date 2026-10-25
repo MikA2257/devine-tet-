@@ -2,21 +2,22 @@
 
 Webapp du jeu « devine tête », optimisée pour iPhone (plein écran, hors-ligne, encoches gérées).
 
-## Deux modes
+## Deux modes, en binômes
 
-**📱 Téléphone sur le front** : le téléphone, à l'horizontale sur le front, affiche un mot aux autres joueurs qui le font deviner.
-- Penche la tête **en avant** (écran vers le sol) → **Trouvé** ✓
-- Penche la tête **en arrière** (écran vers le plafond) → **Passer**
-- Manches de 30 s à 2 min, sons, score et récapitulatif à la fin.
-- Option « Boutons » si les capteurs ne sont pas disponibles (ou pour qu'un ami tienne le téléphone).
+L'appli tire les binômes au hasard. Dans un binôme, un joueur devine en posant des questions, l'autre répond par oui, non, peut-être ou je ne sais pas.
+Les binômes jouent à tour de rôle (30 / 45 / 60 / 90 s par tour) ; le temps s'additionne jusqu'à ce que le binôme ait trouvé ses mots.
+**Le plus petit temps total gagne.** Le gagnant est annoncé à la fin du tour complet, pour que les binômes qui jouent après aient eu autant de temps ;
+ensuite les autres peuvent continuer pour le classement, abandonner, ou arrêter la partie.
 
-**🟨 Post-it en binômes** : l'appli tire les binômes au hasard ; dans chaque binôme, un joueur a le mot sur le front et pose des questions, l'autre répond par oui, non, peut-être ou je ne sais pas.
-- Chaque binôme a 45 s par tour (réglable : 30 / 45 / 60 / 90 s), puis on passe au binôme suivant, chacun avec son propre mot.
-- Le temps s'additionne tour après tour jusqu'à ce que le binôme trouve : le plus petit temps total gagne.
-- Le gagnant est annoncé à la fin du tour complet, pour que les binômes qui jouent après aient eu autant de temps.
-- Ensuite les autres peuvent continuer pour le classement, abandonner, ou arrêter la partie.
-- Nombre impair : le dernier groupe est un trio avec un seul joueur qui devine ; ses deux coéquipiers répondent en alternance (un par tour), donc mêmes conditions qu'un binôme.
-- *Vrais post-it* (le coéquipier écrit le mot) ou *Sur l'écran* (le téléphone sur le front affiche le mot et le chrono).
+Nombre impair : le dernier groupe est un trio, mais à chaque tour un seul joueur devine et un seul répond, donc mêmes conditions qu'un binôme.
+
+**📱 Téléphone sur le front** : course à 3, 5 ou 10 mots par binôme. Le téléphone, à l'horizontale sur le front, fait défiler les mots :
+penche la tête **en avant** = trouvé, **en arrière** = passer. Les rôles s'inversent à chaque tour.
+Les règles **Classique** (un max de mots en une manche chronométrée) restent disponibles. Option « Boutons » si les capteurs ne sont pas disponibles.
+
+**🟨 Post-it** : un mot à la fois. Avec « 2 mots », quand le binôme trouve, les rôles s'inversent avec un nouveau mot ; il a fini quand chacun a trouvé le sien.
+- *Vrais post-it* : l'appli montre le mot au coéquipier, qui l'écrit.
+- *Sur l'écran* : le téléphone sur le front affiche le mot et le chrono.
 
 10 catégories (~600 mots) + une catégorie **Mes mots** personnalisable.
 
