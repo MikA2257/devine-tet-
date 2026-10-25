@@ -58,14 +58,6 @@
     <h3>Catégories</h3>
     <div class="cats" id="cats"></div>
 
-    <div id="opts-rules">
-      <h3>Règles</h3>
-      <div class="seg" id="seg-rules">
-        <button data-v="team">Course en binômes</button><button data-v="classic">Classique</button>
-      </div>
-      <p class="hint" id="rules-hint"></p>
-    </div>
-
     <div id="opts-players">
       <h3>Joueurs</h3>
       <div id="players"></div>
@@ -76,13 +68,6 @@
       <h3>Temps par tour</h3>
       <div class="seg" id="seg-turn">
         <button data-v="30">30 s</button><button data-v="45">45 s</button><button data-v="60">60 s</button><button data-v="90">90 s</button>
-      </div>
-    </div>
-
-    <div id="opts-duration">
-      <h3>Durée de la manche</h3>
-      <div class="seg" id="seg-duration">
-        <button data-v="30">30 s</button><button data-v="60">60 s</button><button data-v="90">90 s</button><button data-v="120">2 min</button>
       </div>
     </div>
 
@@ -100,6 +85,11 @@
         <button data-v="1">1 mot</button><button data-v="2">2 mots (rôles inversés)</button>
       </div>
       <p class="hint" id="pairwords-hint"></p>
+      <h3>Joker : changer de mot</h3>
+      <div class="seg" id="seg-skips">
+        <button data-v="0">0</button><button data-v="1">1 fois</button><button data-v="2">2 fois</button>
+      </div>
+      <p class="hint" id="skips-hint"></p>
     </div>
 
     <div id="opts-postit">
@@ -146,15 +136,12 @@
 <!-- FRONT : JEU -->
 <section id="fh-play" class="screen dark">
   <div class="play-top">
-    <span id="fh-score" class="pill">0</span>
     <span id="fh-timer" class="pill timer">60</span>
   </div>
   <div class="center">
     <div id="fh-word" class="big-word"></div>
   </div>
   <div class="tap-zones" id="tap-zones">
-    <button data-act="pass">⬆︎ Passer</button>
-    <button data-act="ok">Trouvé ✓</button>
     <button data-act="pause">⏸ Pause</button>
   </div>
   <div id="fh-flash" class="flash"></div>
@@ -173,21 +160,6 @@
       <button class="secondary" id="btn-ask-resume">Non, on reprend</button>
       <button class="link-btn" id="btn-ask-giveup">Abandonner</button>
     </div>
-  </div>
-</section>
-
-<!-- FRONT : FIN -->
-<section id="fh-end" class="screen">
-  <div class="scroll">
-    <div class="result-head">
-      <div class="result-score" id="fh-final"></div>
-      <div class="sub" id="fh-final-label"></div>
-    </div>
-    <ul class="recap" id="fh-recap"></ul>
-  </div>
-  <div class="bottom two">
-    <button class="secondary" data-go="home">Menu</button>
-    <button class="primary" id="btn-replay">Rejouer</button>
   </div>
 </section>
 
@@ -211,7 +183,7 @@
 <section id="pi-deal" class="screen">
   <div class="topbar">
     <button class="back" data-quit aria-label="Quitter">✕</button>
-    <h2>Distribution</h2>
+    <h2 id="pi-deal-title">Distribution</h2>
   </div>
   <div class="center col" id="pi-deal-body"></div>
 </section>

@@ -14,13 +14,17 @@ Nombre impair : le dernier groupe est un trio, mais à chaque tour un seul joueu
 
 **📱 Téléphone sur le front** : mêmes règles que le post-it. Le téléphone, à l'horizontale sur le front de celui qui devine, affiche son mot et le chrono.
 Dès qu'on retire le téléphone du front, le chrono se met en pause et l'appli demande (mot caché) : trouvé, on reprend, ou abandon (possible seulement si une autre équipe a déjà fini).
-Option « Boutons » : un bouton Pause remplace la détection. Les règles **Classique** (un max de mots en une manche, inclinaison = trouvé / passer) restent disponibles.
+Option « Boutons » : un bouton Pause remplace la détection.
 
 **🟨 Post-it** : un mot à la fois (comme le mode front). Avec « 2 mots », quand le binôme trouve, les rôles s'inversent avec un nouveau mot ; il a fini quand chacun a trouvé le sien.
 - *Vrais post-it* : l'appli montre le mot au coéquipier, qui l'écrit.
 - *Sur l'écran* : le téléphone sur le front affiche le mot et le chrono.
 
-10 catégories (~600 mots) + une catégorie **Mes mots** personnalisable.
+**Joker « changer de mot »** (0, 1 ou 2 fois, réglable) : avant le premier tour avec un nouveau mot, celui qui fait deviner le découvre seul et peut le changer s'il ne connaît pas la personne.
+
+**Mots** : uniquement des personnes réelles ou fictives, en 11 catégories au choix (footballeurs, sportifs, acteurs & actrices,
+chanteurs & musiciens, personnalités & influenceurs, personnages historiques, super-héros & méchants, dessins animés,
+films & séries, contes/livres & BD, jeux vidéo), plus une catégorie **Mes mots** personnalisable.
 
 ## Installer sur iPhone
 
@@ -38,5 +42,5 @@ Aucun build : HTML/CSS/JS statiques.
 python3 -m http.server 8000
 ```
 
-Sur ordinateur, les flèches ↓ / ↑ simulent « trouvé » / « passer ».
+Sur ordinateur, la barre d'espace met le chrono en pause en mode front.
 Après modification des fichiers, incrémenter `VERSION` dans `sw.js`.

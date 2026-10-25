@@ -14,19 +14,26 @@
     }
   };
 
+  const DEFAULT_CATS = ["footballeurs", "sportifs", "acteurs", "chanteurs", "superheros", "dessinsanimes", "films"];
   const settings = Object.assign({
-    cats: ["celebrites", "personnages", "animaux", "films"],
-    duration: 60,
+    cats: DEFAULT_CATS,
     control: "tilt",
     players: [],
     support: "paper",
     turnTime: 45,
-    rules: "team",
-    pairWords: 2
+    pairWords: 2,
+    skips: 1
   }, store.get("settings", {}));
   const saveSettings = () => store.set("settings", settings);
 
   let customWords = store.get("custom", []);
+
+  // Catégories d'une ancienne version : on repart des catégories par défaut
+  {
+    const known = new Set([...window.CATEGORIES.map((c) => c.id), "custom"]);
+    settings.cats = settings.cats.filter((c) => known.has(c));
+    if (!settings.cats.some((c) => c !== "custom")) settings.cats = [...DEFAULT_CATS, ...settings.cats];
+  }
   const recentlyUsed = new Set(store.get("recent", []));
 
   // ---------- Utilitaires ----------
@@ -193,9 +200,8 @@
   function openSetup() {
     $("#setup-title").textContent = mode === "front" ? "📱 Sur le front" : "🟨 Post-it en binômes";
     renderCats();
-    renderSeg("#seg-rules", settings.rules);
     renderSeg("#seg-pairwords", String(settings.pairWords));
-    renderSeg("#seg-duration", String(settings.duration));
+    renderSeg("#seg-skips", String(settings.skips));
     renderSeg("#seg-control", settings.control);
     renderSeg("#seg-support", settings.support);
     renderSeg("#seg-turn", String(settings.turnTime));
@@ -232,41 +238,24 @@
       updateHints();
     }));
   }
-  bindSeg("#seg-duration", "duration", true);
   bindSeg("#seg-control", "control");
   bindSeg("#seg-support", "support");
   bindSeg("#seg-turn", "turnTime", true);
-  bindSeg("#seg-rules", "rules");
   bindSeg("#seg-pairwords", "pairWords", true);
-
-  // Affiche les options utiles selon le mode et les règles
-  function updateOptions() {
-    const front = mode === "front";
-    const teams = !front || settings.rules === "team";
-    $("#opts-rules").hidden = !front;
-    $("#opts-players").hidden = !teams;
-    $("#opts-pairwords").hidden = !teams;
-    $("#opts-duration").hidden = !(front && !teams);
-    $("#opts-control").hidden = !front;
-    $("#opts-postit").hidden = front;
-  }
+  bindSeg("#seg-skips", "skips", true);
 
   function updateHints() {
-    updateOptions();
-    $("#rules-hint").textContent = settings.rules === "team"
-      ? "Mêmes règles que le post-it : l'appli forme les binômes, chacun son tour avec un chrono, le binôme le plus rapide gagne."
-      : "Une manche chronométrée : un maximum de mots en un temps donné.";
+    $("#opts-control").hidden = mode !== "front";
+    $("#opts-postit").hidden = mode === "front";
+    $("#skips-hint").textContent = settings.skips
+      ? `Avant de commencer avec un nouveau mot, celui qui fait deviner le découvre et peut le changer ${settings.skips === 1 ? "une fois" : "jusqu'à 2 fois"} (s'il ne connaît pas la personne, par exemple).`
+      : "Pas de changement possible : on joue le mot tiré.";
     $("#pairwords-hint").textContent = settings.pairWords === 2
       ? "Quand le binôme trouve, les rôles s'inversent et il reçoit un nouveau mot. Il a fini quand chacun a trouvé le sien."
       : "Un seul mot par binôme, toujours le même joueur qui devine.";
-    const team = settings.rules === "team";
     $("#control-hint").textContent = settings.control === "tilt"
-      ? (team
-        ? "Téléphone à l'horizontale sur le front, écran vers le coéquipier. Dès qu'on le retire du front, le chrono se met en pause et l'appli demande si le mot est trouvé."
-        : "Téléphone à l'horizontale sur le front, écran vers les autres. Penche la tête en avant = trouvé, en arrière = passer.")
-      : (team
-        ? "Un bouton « Pause » s'affiche à l'écran : le coéquipier le touche pour arrêter le chrono."
-        : "Des boutons « Passer » et « Trouvé » s'affichent à l'écran (pratique si un ami tient le téléphone).");
+      ? "Téléphone à l'horizontale sur le front, écran vers le coéquipier. Dès qu'on le retire du front, le chrono se met en pause et l'appli demande si le mot est trouvé."
+      : "Un bouton « Pause » s'affiche à l'écran : le coéquipier le touche pour arrêter le chrono.";
     $("#support-hint").textContent = settings.support === "paper"
       ? "L'appli montre le mot de chaque binôme : le coéquipier l'écrit sur le post-it sans que celui qui devine ne le voie."
       : "Pas de papier : celui qui devine pose le téléphone sur son front, le mot et le chrono s'affichent pour son coéquipier.";
@@ -303,14 +292,13 @@
   $("#btn-start").addEventListener("click", () => {
     unlockAudio();
     if (!settings.cats.length) return toast("Choisis au moins une catégorie");
-    if (mode === "front" && settings.rules === "classic") startFront();
-    else startTeams(mode);
+    startTeams(mode);
   });
 
   // Quitter une partie en cours
   $$("[data-quit]").forEach((b) => b.addEventListener("click", () => {
     if (fh.team && fh.phase !== "idle") {
-      // En binômes : pause du tour plutôt que quitter la partie
+      // Pendant un tour : pause plutôt que quitter la partie
       if (fh.phase === "play") return pauseFront();
       if (fh.banked > 0) return showAsk();
       if (confirm("Annuler ce tour ? Il ne sera pas compté.")) {
@@ -329,28 +317,17 @@
   // =====================================================
   //                 MODE TÉLÉPHONE SUR LE FRONT
   // =====================================================
-  // Classique : un maximum de mots en une manche, inclinaison = trouvé / passer.
-  // Binômes (fh.team) : mêmes règles que le post-it, un seul mot affiché ; dès que le téléphone
+  // Mêmes règles que le post-it : le téléphone sur le front affiche le mot du binôme ; dès qu'il
   // quitte le front, le chrono se met en pause et on demande si le mot a été trouvé.
   const fh = {
-    deck: [], idx: 0, results: [], word: null,
-    useTilt: false, phase: "idle",   // idle | ready | count | play | feedback | asked | over
+    useTilt: false, phase: "idle",   // idle | ready | count | play | asked | over
     team: null, banked: 0, playStart: 0, offSince: 0,
     timerId: null, endAt: 0, stableSince: 0, gotSensor: false,
-    sensorCheck: null, countTimer: null, feedbackUntil: 0
+    sensorCheck: null, countTimer: null
   };
 
-  function startFront() {
-    fh.deck = buildDeck();
-    if (!fh.deck.length) return toast("Aucun mot dans ces catégories");
-    fh.idx = 0;
-    launchFront(null);
-  }
-
-  // team = null en mode classique, sinon l'équipe dont c'est le tour
   function launchFront(team) {
     fh.team = team;
-    fh.results = [];
     fh.banked = 0;
     fh.useTilt = settings.control === "tilt";
 
@@ -372,12 +349,11 @@
     fh.phase = "ready";
     fh.gotSensor = false;
     fh.stableSince = 0;
-    const who = fh.team ? guesserOf(fh.team) + ", " : "";
-    const again = fh.banked > 0;
+    const who = guesserOf(fh.team);
     $("#ready-count").textContent = "";
     $("#ready-msg").textContent = fh.useTilt
-      ? `${who}${again ? "remets" : "place"} le téléphone sur ton front`
-      : (fh.team ? `${who}prêt ?` : "Prêt ?");
+      ? `${who}, ${fh.banked > 0 ? "remets" : "place"} le téléphone sur ton front`
+      : `${who}, prêt ?`;
     $("#btn-ready").hidden = fh.useTilt;
     show("fh-ready");
     keepAwake(true);
@@ -428,38 +404,24 @@
         if (!fh.stableSince) fh.stableSince = now;
         else if (now - fh.stableSince > 700) startCountdown();
       } else fh.stableSince = 0;
-    } else if (fh.phase === "play" && fh.team) {
+    } else if (fh.phase === "play") {
       // Téléphone redressé / retiré du front : pause
       if (onForehead) fh.offSince = 0;
       else if (!fh.offSince) fh.offSince = now;
       else if (now - fh.offSince > 350) pauseFront();
-    } else if (fh.phase === "play") {
-      if (up < -0.6) answer(true);
-      else if (up > 0.6) answer(false);
-    } else if (fh.phase === "feedback") {
-      if (now >= fh.feedbackUntil && Math.abs(up) < 0.4) nextWord();
     }
   }
 
   function beginPlay() {
-    const t = fh.team;
     $("#tap-zones").classList.toggle("show", !fh.useTilt);
-    $("#tap-zones").classList.toggle("pause-only", !!t);
-    $("#fh-score").hidden = !!t;
-    $("#fh-score").textContent = "0";
     fh.playStart = performance.now();
     fh.offSince = 0;
-    fh.endAt = fh.playStart + (t ? settings.turnTime * 1000 - fh.banked : settings.duration * 1000);
+    fh.endAt = fh.playStart + settings.turnTime * 1000 - fh.banked;
+    $("#fh-word").textContent = fh.team.word;
+    $("#fh-flash").className = "flash";
+    fh.phase = "play";
     show("fh-play");
     sfx.go();
-    if (t) {
-      fh.word = t.word;
-      $("#fh-word").textContent = t.word;
-      $("#fh-flash").className = "flash";
-      fh.phase = "play";
-    } else {
-      nextWord();
-    }
     let lastSec = null;
     clearInterval(fh.timerId);
     fh.timerId = setInterval(() => {
@@ -475,47 +437,15 @@
     }, 100);
   }
 
-  function nextWord() {
-    if (fh.idx >= fh.deck.length) {
-      fh.deck = shuffle(fh.deck.slice());
-      fh.idx = 0;
-    }
-    fh.word = fh.deck[fh.idx++];
-    markUsed(fh.word);
-    $("#fh-word").textContent = fh.word;
-    $("#fh-flash").className = "flash";
-    fh.phase = "play";
-  }
-
-  function answer(ok) {
-    if (fh.phase !== "play" || fh.team) return;
-    fh.results.push({ word: fh.word, ok });
-    $("#fh-score").textContent = fh.results.filter((r) => r.ok).length;
-    const flash = $("#fh-flash");
-    flash.textContent = ok ? "Trouvé !" : "Passe";
-    flash.className = "flash " + (ok ? "ok" : "pass");
-    ok ? sfx.ok() : sfx.pass();
-    buzz(ok ? 60 : [30, 40, 30]);
-    fh.phase = "feedback";
-    fh.feedbackUntil = performance.now() + 700;
-    if (!fh.useTilt) setTimeout(() => { if (fh.phase === "feedback") nextWord(); }, 650);
-  }
-
-  $$("#tap-zones button").forEach((b) => b.addEventListener("click", () => {
-    if (b.dataset.act === "pause") pauseFront();
-    else answer(b.dataset.act === "ok");
-  }));
+  $("#tap-zones [data-act=pause]").addEventListener("click", pauseFront);
 
   document.addEventListener("keydown", (e) => {
-    if (fh.phase !== "play") return;
-    if (fh.team && e.key === " ") pauseFront();
-    if (e.key === "ArrowDown") answer(true);
-    if (e.key === "ArrowUp") answer(false);
+    if (fh.phase === "play" && e.key === " ") pauseFront();
   });
 
-  // ----- Pause (binômes) : le mot est caché, on demande ce qui s'est passé -----
+  // ----- Pause : le mot est caché, on demande ce qui s'est passé -----
   function pauseFront() {
-    if (fh.phase !== "play" || !fh.team) return;
+    if (fh.phase !== "play") return;
     fh.banked += performance.now() - fh.playStart;
     clearInterval(fh.timerId);
     clearTimeout(fh.sensorCheck);
@@ -549,7 +479,6 @@
 
   function timeUp() {
     if (fh.phase === "over") return;
-    if (fh.phase === "play" && fh.word && !fh.team) fh.results.push({ word: fh.word, ok: false });
     fh.phase = "over";
     clearInterval(fh.timerId);
     Tilt.stop();
@@ -559,21 +488,9 @@
     flash.textContent = "Temps écoulé !";
     flash.className = "flash end";
     setTimeout(() => {
-      if (!fh.team) return showFrontResults();
       endFrontRuntime();
       teamTimeout();
     }, 1500);
-  }
-
-  function showFrontResults() {
-    keepAwake(false);
-    const score = fh.results.filter((r) => r.ok).length;
-    $("#fh-final").textContent = score;
-    $("#fh-final-label").textContent = score > 1 ? "mots trouvés" : "mot trouvé";
-    $("#fh-recap").innerHTML = fh.results
-      .map((r) => `<li class="${r.ok ? "ok" : "pass"}"><span>${esc(r.word)}</span><span>${r.ok ? "✓" : "✗"}</span></li>`)
-      .join("") || `<li class="pass"><span>Aucun mot joué</span></li>`;
-    show("fh-end");
   }
 
   function endFrontRuntime() {
@@ -585,8 +502,6 @@
     Tilt.stop();
     keepAwake(false);
   }
-
-  $("#btn-replay").addEventListener("click", () => { unlockAudio(); startFront(); });
 
   // =====================================================
   //            PARTIE EN BINÔMES (post-it et front)
@@ -637,6 +552,24 @@
     return w;
   }
 
+  // Nouveau mot pour une équipe, avec ses jokers « changer de mot » remis à zéro
+  function newWord(t) {
+    t.word = null;
+    t.word = drawWord();
+    t.skipsLeft = settings.skips;
+    t.seen = false;
+  }
+
+  function skipWord(t) {
+    t.skipsLeft--;
+    const left = t.skipsLeft;
+    t.word = null;
+    t.word = drawWord();
+    t.skipsLeft = left;
+  }
+
+  const skipLabel = (t) => `⏭ Changer de mot (${t.skipsLeft} restant${t.skipsLeft > 1 ? "s" : ""})`;
+
   function makeTeams() {
     const ps = shuffle(settings.players.slice());
     const groups = [];
@@ -675,7 +608,7 @@
     pi.cur = 0;
     pi.round = 1;
     pi.winnerShown = false;
-    pi.teams.forEach((t) => { t.word = drawWord(); });
+    pi.teams.forEach(newWord);
     if (pi.kind === "postit" && settings.support === "paper") startDeal(pi.teams.map((_, i) => i), true);
     else showTurn();
   });
@@ -684,6 +617,7 @@
   function startDeal(queue, initial) {
     pi.dealQueue = queue;
     pi.dealInitial = initial;
+    $("#pi-deal-title").textContent = "Distribution";
     renderDeal(false);
     show("pi-deal");
   }
@@ -707,7 +641,7 @@
       body.innerHTML = `
         <div class="sub">${pi.dealInitial ? "" : "Nouveau "}Post-it de</div>
         <div class="deal-name">${esc(g)}</div>
-        <p class="hint">${esc(g)}, ne regarde pas ! 🙈<br>Donne le téléphone à ${writers.map(esc).join(" ou ")}, qui écrit le mot.</p>
+        <p class="hint">${esc(g)}, ne regarde pas ! 🙈<br>Donne le téléphone à ${writers.map(esc).join(" ou ")}, qui écrit le mot.${t.skipsLeft ? "<br>S'il ne connaît pas la personne, il peut changer de mot." : ""}</p>
         <div class="stack"><button class="primary" id="deal-show">Afficher le mot</button></div>`;
       $("#deal-show").onclick = () => renderDeal(true);
     } else {
@@ -716,10 +650,10 @@
         <div class="postit-paper small"><div class="postit-word">${esc(t.word)}</div></div>
         <div class="stack">
           <button class="primary" id="deal-next">C'est écrit, suivant</button>
-          <button class="secondary" id="deal-reroll">🎲 Un autre mot</button>
+          ${t.skipsLeft > 0 ? `<button class="secondary" id="deal-reroll">${skipLabel(t)}</button>` : ""}
         </div>`;
-      $("#deal-next").onclick = () => { pi.dealQueue.shift(); renderDeal(false); };
-      $("#deal-reroll").onclick = () => { t.word = null; t.word = drawWord(); renderDeal(true); };
+      $("#deal-next").onclick = () => { t.seen = true; pi.dealQueue.shift(); renderDeal(false); };
+      if (t.skipsLeft > 0) $("#deal-reroll").onclick = () => { skipWord(t); renderDeal(true); };
     }
   }
 
@@ -743,20 +677,57 @@
       return `<li class="${i === pi.cur ? "current" : ""} ${q.gaveUp ? "out" : ""}">
         <span class="n">${esc(teamName(q))}</span><span class="w">${status}</span></li>`;
     }).join("");
+    // Nouveau mot avec joker : celui qui fait deviner le découvre d'abord (et peut le changer)
+    const peek = !t.seen && t.skipsLeft > 0;
     const actions = $("#pi-turn-actions");
-    actions.innerHTML = pi.kind === "front"
-      ? `<button class="primary" id="pi-go">📱 C'est parti (${settings.turnTime} s)</button>`
-      : `<button class="primary" id="pi-go">▶ Lancer le chrono (${settings.turnTime} s)</button>`;
+    actions.innerHTML = peek
+      ? `<button class="primary" id="pi-go">👀 ${esc(a)} découvre le mot</button>`
+      : pi.kind === "front"
+        ? `<button class="primary" id="pi-go">📱 C'est parti (${settings.turnTime} s)</button>`
+        : `<button class="primary" id="pi-go">▶ Lancer le chrono (${settings.turnTime} s)</button>`;
     // Abandon possible dès qu'une autre équipe a fini
     const canGiveUp = pi.teams.some((o) => o !== t && isDone(o));
     if (canGiveUp) actions.innerHTML += `<button class="secondary" id="pi-giveup">Ce binôme abandonne</button>`;
     actions.innerHTML += `<button class="link-btn" id="pi-stop">Terminer la partie</button>`;
-    $("#pi-go").onclick = () => { unlockAudio(); pi.kind === "front" ? launchFront(t) : startClock(); };
+    $("#pi-go").onclick = () => { unlockAudio(); peek ? showPeek(false) : startTurn(); };
     if (canGiveUp) $("#pi-giveup").onclick = () => {
       if (confirm(`${teamName(t)} abandonne ?`)) teamGiveUp(t);
     };
     $("#pi-stop").onclick = () => { if (confirm("Terminer la partie et voir le classement ?")) endPostit(); };
     show("pi-turn");
+  }
+
+  function startTurn() {
+    const t = pi.teams[pi.cur];
+    t.seen = true;
+    pi.kind === "front" ? launchFront(t) : startClock();
+  }
+
+  // Aperçu du mot pour celui qui fait deviner, avec les jokers « changer de mot »
+  function showPeek(revealed) {
+    const t = pi.teams[pi.cur];
+    const g = guesserOf(t), a = answererOf(t);
+    const body = $("#pi-deal-body");
+    $("#pi-deal-title").textContent = "Le mot";
+    if (!revealed) {
+      body.innerHTML = `
+        <div class="sub">Écran réservé à</div>
+        <div class="deal-name">${esc(a)}</div>
+        <p class="hint">${esc(g)}, ferme les yeux ! 🙈<br>${esc(a)} découvre le mot et peut le changer s'il ne connaît pas la personne.</p>
+        <div class="stack"><button class="primary" id="peek-show">Afficher le mot</button></div>`;
+      $("#peek-show").onclick = () => showPeek(true);
+    } else {
+      body.innerHTML = `
+        <div class="sub">À faire deviner à <b>${esc(g)}</b> :</div>
+        <div class="postit-paper small"><div class="postit-word">${esc(t.word)}</div></div>
+        <div class="stack">
+          <button class="primary" id="peek-go">✓ On garde, c'est parti !</button>
+          ${t.skipsLeft > 0 ? `<button class="secondary" id="peek-skip">${skipLabel(t)}</button>` : ""}
+        </div>`;
+      $("#peek-go").onclick = () => { unlockAudio(); startTurn(); };
+      if (t.skipsLeft > 0) $("#peek-skip").onclick = () => { skipWord(t); showPeek(true); };
+    }
+    show("pi-deal");
   }
 
   // ----- Chrono (post-it) -----
@@ -840,7 +811,7 @@
         `Binôme terminé en ${fmt(t.time, true)} (${plural(t.turns, "tour")})`);
     }
     // Rôles inversés avec un nouveau mot
-    t.word = drawWord();
+    newWord(t);
     const idx = pi.cur;
     pi.afterReveal = pi.kind === "postit" && settings.support === "paper" ? () => startDeal([idx], false) : null;
     reveal(`Bravo ! 🎉 C'était :`, word,
