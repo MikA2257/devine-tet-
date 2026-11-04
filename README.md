@@ -25,15 +25,15 @@ Option « Boutons » : un bouton Pause remplace la détection.
 
 **Joker « changer de mot »** (0, 1 ou 2 fois, réglable) : avant le premier tour avec un nouveau mot, celui qui fait deviner le découvre seul et peut le changer s'il ne connaît pas la personne.
 
-**Mots** : uniquement des personnes réelles ou fictives, en 11 catégories au choix (footballeurs, sportifs, acteurs & actrices,
-chanteurs & musiciens, personnalités & influenceurs, personnages historiques, super-héros & méchants, dessins animés,
-films & séries, contes/livres & BD, jeux vidéo), plus une catégorie **Mes mots** personnalisable.
+**Mots** : uniquement des personnes réelles ou fictives, en 12 catégories au choix (footballeurs, sportifs, acteurs & actrices,
+chanteurs & musiciens, personnalités & influenceurs, personnages historiques, super-héros & méchants, manga & anime,
+dessins animés, films & séries, contes/livres & BD, jeux vidéo), plus une catégorie **Mes mots** personnalisable.
 
-**📡 Plusieurs téléphones** : dans les réglages, « Inviter d'autres téléphones » affiche un code (et un lien à envoyer).
-Les autres joueurs touchent « Rejoindre une partie » sur l'accueil et entrent le code : leur téléphone affiche le chrono,
-les équipes et le mot en cours (caché pour celui qui devine). Le téléphone de celui qui répond affiche en plus
-les boutons **Trouvé** et **Pause / Reprendre** ; le reste de la partie se pilote depuis le téléphone hôte.
-Mise en relation via le service public gratuit PeerJS, puis connexion directe entre téléphones ; Internet nécessaire.
+**Difficulté** : Facile (très connus), Moyen (connus), Difficile (plus pointus), à combiner librement.
+
+**Joueurs enfants** 🧒 : un joueur marqué « Enfant » fait piocher à son équipe des noms adaptés aux 10-12 ans.
+
+**Pause automatique** (mode front) : peu sensible (par défaut), sensible, ou désactivée (un bouton Pause reste alors à l'écran).
 
 ## Installer sur iPhone
 

@@ -302,3 +302,9 @@ textarea {
 .mp-names-box { width: min(100%, 380px); text-align: center; max-height: 100%; overflow-y: auto; }
 .mp-actions { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; margin: 6px 0 4px; }
 .mp-actions[hidden] { display: none; }
+
+/* Joueurs enfants */
+.player-btns { display: flex; gap: 6px; align-items: center; }
+.player .kid-btn { width: auto; padding: 0 12px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.player .kid-btn.on { background: rgba(255,204,51,.2); color: var(--accent); }
+.player.kid { outline: 1px solid rgba(255,204,51,.35); }

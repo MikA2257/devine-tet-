@@ -22,7 +22,10 @@
     support: "paper",
     turnTime: 45,
     pairWords: 2,
-    skips: 1
+    skips: 1,
+    levels: ["easy", "medium"],
+    kids: [],
+    autoPause: "low"
   }, store.get("settings", {}));
   const saveSettings = () => store.set("settings", settings);
 
@@ -47,14 +50,24 @@
 
   function allCategories() {
     const cats = [...window.CATEGORIES];
-    if (customWords.length) cats.push({ id: "custom", name: "Mes mots", emoji: "✏️", words: customWords });
+    // Les mots perso comptent dans tous les niveaux, et aussi pour les enfants
+    if (customWords.length) cats.push({ id: "custom", name: "Mes mots", emoji: "✏️",
+      easy: customWords, medium: customWords, hard: customWords, kids: customWords });
     return cats;
   }
 
+  // Mots d'une catégorie pour les niveaux choisis (ou la liste enfants)
+  function catWords(c, kids) {
+    if (kids) return c.kids;
+    return [...new Set(settings.levels.flatMap((l) => c[l] || []))];
+  }
+
   // Paquet de mots mélangé, en évitant les mots joués récemment
-  function buildDeck() {
+  function buildDeck(kids) {
     const words = new Set();
-    for (const c of allCategories()) if (settings.cats.includes(c.id)) c.words.forEach((w) => words.add(w));
+    for (const c of allCategories()) if (settings.cats.includes(c.id)) catWords(c, kids).forEach((w) => words.add(w));
+    // Trop peu de mots « enfants » dans les catégories choisies : on prend ceux de toutes les catégories
+    if (kids && words.size < 15) allCategories().forEach((c) => c.kids.forEach((w) => words.add(w)));
     const all = [...words];
     const fresh = all.filter((w) => !recentlyUsed.has(w));
     if (fresh.length < Math.min(30, all.length)) {
@@ -206,6 +219,8 @@
   function openSetup() {
     $("#setup-title").textContent = mode === "front" ? "📱 Sur le front" : "🟨 Post-it en binômes";
     renderCats();
+    renderLevels();
+    renderSeg("#seg-autopause", settings.autoPause);
     renderSeg("#seg-pairwords", String(settings.pairWords));
     renderSeg("#seg-skips", String(settings.skips));
     renderSeg("#seg-control", settings.control);
@@ -224,7 +239,7 @@
     for (const c of allCategories()) {
       const b = document.createElement("button");
       b.className = "cat" + (settings.cats.includes(c.id) ? " on" : "");
-      b.innerHTML = `<span class="e">${c.emoji}</span><span>${esc(c.name)}<small>${c.words.length} mots</small></span>`;
+      b.innerHTML = `<span class="e">${c.emoji}</span><span>${esc(c.name)}<small>${catWords(c).length} mots</small></span>`;
       b.addEventListener("click", () => {
         settings.cats = settings.cats.includes(c.id) ? settings.cats.filter((x) => x !== c.id) : [...settings.cats, c.id];
         saveSettings();
@@ -232,6 +247,24 @@
       });
       box.appendChild(b);
     }
+  }
+
+  // Niveaux de difficulté : choix multiple, au moins un
+  function renderLevels() {
+    const box = $("#levels");
+    box.innerHTML = window.LEVELS.map((l) =>
+      `<button data-v="${l.id}" class="${settings.levels.includes(l.id) ? "on" : ""}">${l.name}</button>`).join("");
+    $$("#levels button").forEach((b) => b.addEventListener("click", () => {
+      const v = b.dataset.v;
+      const on = settings.levels.includes(v);
+      if (on && settings.levels.length === 1) return toast("Garde au moins un niveau");
+      settings.levels = on ? settings.levels.filter((x) => x !== v) : [...settings.levels, v];
+      saveSettings();
+      renderLevels();
+      renderCats();
+    }));
+    $("#levels-hint").textContent = "Facile : très connus · Moyen : connus · Difficile : plus pointus. " +
+      "Les équipes avec un enfant 🧒 ont leurs propres mots, adaptés aux 10-12 ans.";
   }
 
   function renderSeg(sel, val) {
@@ -250,6 +283,7 @@
   bindSeg("#seg-turn", "turnTime", true);
   bindSeg("#seg-pairwords", "pairWords", true);
   bindSeg("#seg-skips", "skips", true);
+  bindSeg("#seg-autopause", "autoPause");
 
   function updateHints() {
     $("#opts-control").hidden = mode !== "front";
@@ -261,8 +295,14 @@
       ? "Quand le binôme trouve, les rôles s'inversent et il reçoit un nouveau mot. Il a fini quand chacun a trouvé le sien."
       : "Un seul mot par binôme, toujours le même joueur qui devine.";
     $("#control-hint").textContent = settings.control === "tilt"
-      ? "Téléphone à l'horizontale sur le front, écran vers le coéquipier. Dès qu'on le retire du front, le chrono se met en pause et l'appli demande si le mot est trouvé."
+      ? "Téléphone à l'horizontale sur le front, écran vers le coéquipier. Quand on le retire du front, le chrono se met en pause et l'appli demande si le mot est trouvé."
       : "Un bouton « Pause » s'affiche à l'écran : le coéquipier le touche pour arrêter le chrono.";
+    $("#opts-autopause").hidden = settings.control !== "tilt";
+    $("#autopause-hint").textContent = {
+      low: "Il faut vraiment retirer le téléphone du front (ou le redresser franchement) pour mettre en pause.",
+      normal: "La pause se déclenche dès que le téléphone penche un peu trop.",
+      off: "Jamais de pause automatique : un bouton « Pause » reste à l'écran (ou celui qui répond met en pause depuis son téléphone)."
+    }[settings.autoPause];
     $("#support-hint").textContent = settings.support === "paper"
       ? "L'appli montre le mot de chaque binôme : le coéquipier l'écrit sur le post-it sans que celui qui devine ne le voie."
       : "Pas de papier : celui qui devine pose le téléphone sur son front, le mot et le chrono s'affichent pour son coéquipier.";
@@ -276,11 +316,20 @@
     const box = $("#players");
     box.innerHTML = "";
     settings.players.forEach((p, i) => {
+      const kid = settings.kids.includes(p);
       const row = document.createElement("div");
-      row.className = "player";
-      row.innerHTML = `<span>${esc(p)}</span><button aria-label="Retirer">✕</button>`;
-      row.querySelector("button").addEventListener("click", () => {
+      row.className = "player" + (kid ? " kid" : "");
+      row.innerHTML = `<span>${kid ? "🧒 " : ""}${esc(p)}</span><span class="player-btns">
+        <button class="kid-btn ${kid ? "on" : ""}">🧒 Enfant</button><button aria-label="Retirer">✕</button></span>`;
+      const [kidBtn, delBtn] = row.querySelectorAll("button");
+      kidBtn.addEventListener("click", () => {
+        settings.kids = kid ? settings.kids.filter((k) => k !== p) : [...settings.kids, p];
+        saveSettings();
+        renderPlayers();
+      });
+      delBtn.addEventListener("click", () => {
         settings.players.splice(i, 1);
+        settings.kids = settings.kids.filter((k) => k !== p);
         saveSettings();
         renderPlayers();
       });
@@ -427,8 +476,7 @@
     const now = performance.now();
     // À l'horizontale (paysage) et debout, écran face aux autres : position « sur le front »
     const landscape = Math.abs(right) > 0.75;
-    const inPose = landscape && Math.abs(up) < 0.4;
-    const onForehead = Math.abs(up) < 0.5 && Math.abs(top) < 0.6;
+    const inPose = landscape && Math.abs(up) < 0.45;
     if (fh.phase === "ready" || fh.phase === "count") orientStage(right);
     if (fh.phase === "ready") {
       // Le compte à rebours ne démarre que téléphone à l'horizontale, stable sur le front
@@ -447,16 +495,25 @@
         fh.stableSince = 0;
         $("#ready-count").textContent = "";
       }
-    } else if (fh.phase === "play") {
-      // Téléphone redressé / retiré du front : pause
-      if (onForehead) fh.offSince = 0;
+    } else if (fh.phase === "play" && settings.autoPause !== "off") {
+      // Téléphone redressé / retiré du front : pause, s'il reste hors position assez longtemps
+      const cfg = AUTO_PAUSE[settings.autoPause] || AUTO_PAUSE.low;
+      const off = Math.abs(up) > cfg.up || Math.abs(right) < cfg.right;
+      if (!off) fh.offSince = 0;
       else if (!fh.offSince) fh.offSince = now;
-      else if (now - fh.offSince > 350) pauseFront();
+      else if (now - fh.offSince > cfg.ms) pauseFront();
     }
   }
 
+  // Seuils de la pause automatique. up : inclinaison de l'écran vers le ciel ou le sol
+  // (0,85 ≈ 58°, 0,6 ≈ 37°) ; right : en dessous, le téléphone n'est plus à l'horizontale.
+  const AUTO_PAUSE = {
+    low: { up: 0.85, right: 0.4, ms: 900 },
+    normal: { up: 0.6, right: 0.6, ms: 400 }
+  };
+
   function beginPlay() {
-    $("#tap-zones").classList.toggle("show", !fh.useTilt);
+    $("#tap-zones").classList.toggle("show", !fh.useTilt || settings.autoPause === "off");
     fh.playStart = performance.now();
     fh.offSince = 0;
     fh.endAt = fh.playStart + settings.turnTime * 1000 - fh.banked;
@@ -561,7 +618,7 @@
   // Mode fun (2 ou 3 joueurs, pi.solo) : une seule équipe, pas de classement ; on enchaîne les mots
   // (rôles inversés à chaque mot trouvé ou abandonné) jusqu'à « Terminer ».
   const pi = {
-    kind: "postit", target: 1, solo: false, teams: [], deck: [], cur: 0, round: 1, winnerShown: false,
+    kind: "postit", target: 1, solo: false, kidDeck: [], teams: [], deck: [], cur: 0, round: 1, winnerShown: false,
     dealQueue: [], dealInitial: false, afterReveal: null,
     timerId: null, startedAt: 0, banked: 0, running: false
   };
@@ -588,12 +645,18 @@
     return m ? `${m}:${sec < 10 ? "0" : ""}${s}` : `${s} s`;
   }
 
-  function drawWord() {
-    if (!pi.deck.length) pi.deck = buildDeck();
-    const taken = new Set(pi.teams.map((t) => t.word));
-    let i = pi.deck.findIndex((w) => !taken.has(w));
+  // Une équipe avec un enfant pioche dans les mots adaptés aux 10-12 ans
+  const hasKid = (t) => t.members.some((m) => settings.kids.includes(m));
+
+  function drawWord(t) {
+    const kids = !!t && hasKid(t);
+    const key = kids ? "kidDeck" : "deck";
+    if (!pi[key].length) pi[key] = buildDeck(kids);
+    const deck = pi[key];
+    const taken = new Set(pi.teams.map((q) => q.word));
+    let i = deck.findIndex((w) => !taken.has(w));
     if (i < 0) i = 0;
-    const w = pi.deck.splice(i, 1)[0];
+    const w = deck.splice(i, 1)[0];
     markUsed(w);
     return w;
   }
@@ -601,7 +664,7 @@
   // Nouveau mot pour une équipe, avec ses jokers « changer de mot » remis à zéro
   function newWord(t) {
     t.word = null;
-    t.word = drawWord();
+    t.word = drawWord(t);
     t.wordTime = 0;
     t.skipsLeft = settings.skips;
     t.seen = false;
@@ -611,7 +674,7 @@
     t.skipsLeft--;
     const left = t.skipsLeft;
     t.word = null;
-    t.word = drawWord();
+    t.word = drawWord(t);
     t.skipsLeft = left;
   }
 
@@ -633,6 +696,7 @@
     pi.solo = settings.players.length < 4;
     pi.target = pi.solo ? Infinity : settings.pairWords;
     pi.deck = buildDeck();
+    pi.kidDeck = [];
     if (!pi.deck.length) return toast("Aucun mot dans ces catégories");
     makeTeams();
     renderTeams();
@@ -647,7 +711,8 @@
         "Les rôles changent à chaque mot trouvé ou abandonné. 🤔 devine · 💬 répond par oui, non, peut-être ou je ne sais pas.";
       $("#pi-teams-list").innerHTML = `<li class="team"><span class="team-num">🎉</span><span>
         <span class="role">🔄 Devinent à tour de rôle : <b>${t.members.map(esc).join("</b>, <b>")}</b></span>
-        <span class="role">💬 ${t.members.length > 2 ? "Les autres répondent à tour de rôle" : "L'autre répond"}</span></span></li>`;
+        <span class="role">💬 ${t.members.length > 2 ? "Les autres répondent à tour de rôle" : "L'autre répond"}</span>
+        ${hasKid(t) ? `<span class="role">🧒 Mots adaptés aux enfants</span>` : ""}</span></li>`;
       return;
     }
     const odd = settings.players.length % 2 === 1;
@@ -659,7 +724,8 @@
       const others = t.members.filter((m) => m !== t.members[0]);
       const lines = `<span class="role">🤔 <b>${guessers.map(esc).join("</b> puis <b>")}</b> ${guessers.length > 1 ? "devinent chacun leur tour" : "devine"}</span>
         <span class="role">💬 ${t.members.length > 2 ? "Les autres répondent à tour de rôle, un par tour" : pi.target > 1 ? "L'autre répond" : esc(others[0]) + " répond"}</span>`;
-      return `<li class="team"><span class="team-num">${i + 1}</span><span>${lines}</span></li>`;
+      const kid = hasKid(t) ? `<span class="role">🧒 Mots adaptés aux enfants</span>` : "";
+      return `<li class="team"><span class="team-num">${i + 1}</span><span>${lines}${kid}</span></li>`;
     }).join("");
   }
 
