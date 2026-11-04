@@ -81,7 +81,7 @@ window.CATEGORIES = [
       "Ariel", "Elsa", "Olaf", "Raiponce", "Cendrillon", "Blanche-Neige", "La Belle (et la Bête)", "Peter Pan",
       "Le Capitaine Crochet", "Pinocchio", "Dumbo", "Bambi", "Winnie l'ourson", "Tigrou", "Woody", "Buzz l'Éclair", "Nemo",
       "Dory", "Stitch", "Vaiana", "Pikachu", "Sacha (Pokémon)", "Son Goku", "Naruto", "Luffy", "Totoro", "Peppa Pig",
-      "T'choupi", "Gru", "Les Minions", "Ladybug", "Chat Noir", "Barbapapa", "Garfield", "Snoopy", "Popeye", "Betty Boop",
+      "T'choupi", "Gru", "Kevin (Les Minions)", "Ladybug", "Chat Noir", "Barbapapa", "Garfield", "Snoopy", "Popeye", "Betty Boop",
       "Le Grand Schtroumpf", "Gargamel", "Inspecteur Gadget", "Wall-E", "Flash McQueen", "Maléfique", "Cruella", "Ursula",
       "Le Grinch", "Rémy (Ratatouille)", "Sid (L'Âge de glace)", "Po (Kung Fu Panda)", "Caliméro"]
   },
@@ -98,19 +98,19 @@ window.CATEGORIES = [
   },
   {
     id: "contes", name: "Contes, livres & BD", emoji: "📚",
-    words: ["Tintin", "Le capitaine Haddock", "Milou", "Astérix", "Obélix", "Panoramix", "Idéfix", "Lucky Luke", "Les Dalton",
-      "Gaston Lagaffe", "Titeuf", "Spirou", "Le Petit Prince", "Le Petit Nicolas", "Boule et Bill", "Le Petit Chaperon rouge",
+    words: ["Tintin", "Le capitaine Haddock", "Milou", "Astérix", "Obélix", "Panoramix", "Idéfix", "Lucky Luke", "Joe Dalton",
+      "Gaston Lagaffe", "Titeuf", "Spirou", "Le Petit Prince", "Le Petit Nicolas", "Bill (Boule et Bill)", "Le Petit Chaperon rouge",
       "Le Grand Méchant Loup", "Le Chat botté", "Barbe Bleue", "Boucle d'or", "Alice (au pays des merveilles)",
       "Le Chapelier fou", "Le Lapin blanc", "La Reine de cœur", "Robin des Bois", "Le Père Noël", "La Petite Souris",
       "Ali Baba", "Sinbad", "Merlin l'Enchanteur", "Le roi Arthur", "Don Quichotte", "D'Artagnan", "Cyrano de Bergerac",
       "Quasimodo", "Esmeralda", "Jean Valjean", "Cosette", "Gavroche", "Tarzan", "Mowgli", "Baloo", "La Belle au bois dormant",
-      "Le Petit Poucet", "Hansel et Gretel", "Arsène Lupin", "Le Comte de Monte-Cristo", "Hercule Poirot", "Zorro", "Fantômas"]
+      "Le Petit Poucet", "Arsène Lupin", "Le Comte de Monte-Cristo", "Hercule Poirot", "Zorro", "Fantômas"]
   },
   {
     id: "jeuxvideo", name: "Jeux vidéo", emoji: "🎮",
     words: ["Mario", "Luigi", "Princesse Peach", "Bowser", "Yoshi", "Donkey Kong", "Wario", "Link", "Zelda", "Ganondorf",
       "Sonic", "Tails", "Dr. Robotnik", "Pac-Man", "Lara Croft", "Kratos", "Master Chief", "Steve (Minecraft)", "Kirby",
-      "Samus Aran", "Rayman", "Les Lapins Crétins", "Crash Bandicoot", "Spyro", "Ezio Auditore", "Cloud Strife",
+      "Samus Aran", "Rayman", "Un Lapin Crétin", "Crash Bandicoot", "Spyro", "Ezio Auditore", "Cloud Strife",
       "Solid Snake", "Ryu (Street Fighter)", "Chun-Li", "Toad", "Mega Man", "Ellie (The Last of Us)", "Geralt de Riv",
       "Arthur Morgan", "CJ (GTA San Andreas)", "Professeur Layton", "Tom Nook", "Sackboy", "Mewtwo", "Rondoudou",
       "Pikachu", "Bomberman", "Captain Toad", "Leon Kennedy"]
